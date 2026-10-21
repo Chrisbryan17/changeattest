@@ -4,7 +4,7 @@
 
 ChangeAttest is an independent, open-source developer preflight project. It begins with a battle-tested library of small Git hooks and is being developed into a change-aware quality, security, and test-evidence gate for human and AI-assisted software development.
 
-> **Status:** Early engineering release. The original hook library and initial `changeattest check` evidence CLI are implemented. Signed attestations, arbitrary tool orchestration, dashboards, and agent integrations are **not** implemented. The current evidence hash is an unsigned checksum, not proof from an independent authority.
+> **Status:** Pre-release engineering project. The library, policy gate, immutable Git commit snapshots, optional tool adapters, Ed25519 evidence envelopes, agent scope contracts, exporters and local dashboard are implemented on the platform branch. **A hosted SaaS, cryptographically authenticated runner, fully isolated third-party execution, automatic agent integrations, and enterprise governance are not delivered.** Signing a self-asserted report does not establish independent execution.
 
 ## What works today
 
@@ -111,6 +111,40 @@ workflow should still be reviewed carefully: this ruleset enforces the
 named check, but does not itself make the workflow files immutable or
 require human approval of policy changes. Use pull requests for changes
 to `main` and monitor repository administrators' ability to alter rules.
+
+## Expanded platform interfaces
+
+The tracked policy gate now runs against **temporary snapshots created from
+immutable Git HEAD objects**, not live worktree bytes. It still does not
+authenticate the runner or validate dependencies.
+
+Optional verification commands (see [adoption instructions](docs/ADOPTION.md)):
+
+```bash
+# Optional language/test tools; toolchain code can execute project plugins
+changeattest tools --adapter ruff --adapter pytest --report tools.json
+
+# Record executed JUnit test output; this alone is an unsigned receipt
+changeattest junit-evidence --junit results.xml --report tests.json
+
+# Sign only with a separately controlled CI key, never an agent-owned key
+changeattest sign --input tests.json --private-key ci-key.pem --output signed.json
+changeattest verify-signature --input signed.json --public-key trusted-ci.pem
+
+# Check a code agent's permitted scope against Git history
+changeattest agent-review --contract contract.json \
+  --base <BASE_SHA> --head <HEAD_SHA> --report agent-verdict.json
+
+# Portable reports and a local-only evidence explorer
+changeattest render --input evidence.json --format html --output evidence.html
+changeattest store --input evidence.json --database evidence.sqlite
+changeattest serve --database evidence.sqlite
+```
+
+See [implementation status](docs/IMPLEMENTATION_STATUS.md) for delivered vs
+outstanding milestones and [security policy](SECURITY.md) for threat boundaries.
+Organizational policy overlays are supported with `gate --overlay-policy`
+and can only tighten mandatory checks, timeouts, size limits and coverage.
 
 ## Run hooks in a local development checkout
 
