@@ -12,11 +12,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out PR merge commit with complete Git history
-        uses: actions/checkout@v4
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803  # v6
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6
         with:
           python-version: '3.13'
       - name: Install ChangeAttest without private credentials
@@ -33,7 +33,7 @@ jobs:
             --report "$RUNNER_TEMP/changeattest-impact.json"
           python -c 'import json,os; x=json.load(open(os.environ["RUNNER_TEMP"]+"/changeattest-impact.json")); print("Decision:",x["decision"]); print("Suggested:",x["selected_count"],"/",x["total_count"]); print("Fall back:",x["fallback_reasons"]); print("Mandatory CI:",x["mandatory_ci_recommendation"])'
       - name: Attach advisory impact report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4  # v5
         with:
           name: changeattest-impact-advisory
           path: ${{ runner.temp }}/changeattest-impact.json
