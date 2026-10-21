@@ -52,7 +52,7 @@ def test_staged_json_passes_and_emits_repeatable_evidence(sample_repo, tmp_path)
          'sha256': hashlib.sha256((sample_repo / 'valid.json').read_bytes()).hexdigest()},
     ]
     assert [x['id'] for x in report['checks']] == [
-        'json', 'toml', 'yaml', 'merge-conflict', 'private-key',
+        'python-ast', 'json', 'toml', 'yaml', 'merge-conflict', 'private-key',
         'openpgp-secret-key',
     ]
     assert next(x for x in report['checks'] if x['id'] == 'json')['status'] == 'passed'
