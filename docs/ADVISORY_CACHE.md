@@ -12,8 +12,12 @@ Store the cache **outside** the target repository:
 ```bash
 changeattest tools --adapter ruff \
   --docker-image 'registry.example.invalid/tools@sha256:<reviewed-image-digest>' \
-  --cache-dir "$HOME/.cache/changeattest" --report tools.json
+  --cache-dir "$HOME/.cache/changeattest" \
+  --report "$HOME/.cache/changeattest-tools.json"
 ```
+
+Store generated reports **outside** the checkout too. A report created as an
+untracked file inside the checkout deliberately disables later cache hits.
 
 A valid cache hit produces check status `cached-passed` and overall status
 `passed-with-cache`. Those statuses explicitly distinguish reused local
