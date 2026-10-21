@@ -34,10 +34,10 @@ ADAPTERS = (
     Adapter(
         'python-ast-stdlib', sys.executable,
         ('-I', '-B', '-c',
-         'import ast,sys\\n'
-         'for name in sys.argv[1:]:\\n'
-         '    with open(name, "rb") as stream:\\n'
-         '        ast.parse(stream.read(), filename=name)\\n'),
+         'import ast,sys\n'
+         'for name in sys.argv[1:]:\n'
+         '    with open(name, "rb") as stream:\n'
+         '        ast.parse(stream.read(), filename=name)\n'),
         ('.py',),
         explicit_risk='Syntax-only check using the Python stdlib, no project import',
     ),
