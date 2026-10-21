@@ -24,6 +24,7 @@ from changeattest.engine import load_config
 from changeattest.engine import scan
 from changeattest.policy import evaluate
 from changeattest.policy import load_policy
+from changeattest.policy import strengthen_policy
 from changeattest.snapshot import scan_commit
 from changeattest.reports import render
 from changeattest.history import store as store_evidence
@@ -70,6 +71,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     gate = sub.add_parser('gate', help='Enforce trusted, mandatory check policy')
     gate.add_argument('--root', default='.')
     gate.add_argument('--policy', required=True)
+    gate.add_argument('--overlay-policy', help='Optional, strictly tightening policy')
     gate.add_argument('--report', required=True)
     gate.add_argument('--expected-head')
 
@@ -197,6 +199,10 @@ def main(argv: Sequence[str] | None = None) -> int:
 
         if args.action == 'gate':
             policy = load_policy(Path(args.policy))
+            if args.overlay_policy:
+                policy = strengthen_policy(
+                    policy, load_policy(Path(args.overlay_policy)),
+                )
             result = (scan_commit(root, policy.runner_config())
                       if policy.scope == 'tracked' else
                       scan(root, policy.scope, policy.runner_config()))
