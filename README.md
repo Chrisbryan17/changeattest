@@ -40,6 +40,10 @@ ChangeAttest's `.pre-commit-hooks.yaml` manifest remains compatible with the sep
 
 For the full inherited hook catalogue, see [Original hook catalogue](docs/ORIGINAL_HOOKS.md).
 
+## Continuous integration
+
+The [in-repository CI workflow](.github/workflows/main.yml) runs the regression tests across supported Python versions on Linux and Windows. Test results are reported by GitHub Actions; no green status is claimed until the workflow actually completes.
+
 ## Direction
 
 1. **Hardening:** correctness, cross-platform behavior, regression tests, and reliable Git checks.
