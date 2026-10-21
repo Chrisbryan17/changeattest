@@ -1,5 +1,19 @@
 # ChangeAttest policy gate v1
 
+## ChangeAttest repository enforcement status
+
+On October 21, 2026, the repository administrator enabled
+[GitHub ruleset #25567644](https://github.com/Chrisbryan17/changeattest/rules/25567644).
+The active branch rule requires the `verified-policy-gate` status.
+The independent gate was verified on both a PR and the default-branch
+commit. This is a repository policy decision, not a signature on a report.
+
+**Remaining governance consideration:** the ruleset currently requires
+the check's success but does not separately lock changes to the workflow
+or policy file, or impose human reviews. A future contribution that alters
+the workflow definition needs careful review because the workflow is also
+part of the enforcement mechanism. Admins can modify or disable rules.
+
 **This is a local policy evaluator. It is not cryptographic attestation.**
 A report can be manufactured and rehashed; the CI job must execute the
 validators itself using a trusted runner implementation and trusted rules.
