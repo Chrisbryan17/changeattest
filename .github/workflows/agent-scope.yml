@@ -1,0 +1,40 @@
+name: ChangeAttest Agent Scope
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  agent-scope:
+    name: agent-change-scope
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out submitted revision
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Load reviewed agent policy and engine
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin refs/heads/main
+          git show FETCH_HEAD:.github/changeattest-agent-contract.json > "$RUNNER_TEMP/agent-contract.json"
+          printf 'TRUSTED_REF=%s\n' "$(git rev-parse FETCH_HEAD)" >> "$GITHUB_ENV"
+      - name: Install reviewed ChangeAttest
+        run: python -m pip install "git+https://github.com/Chrisbryan17/changeattest.git@$TRUSTED_REF"
+      - name: Check the change against the agent contract
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          python -I -m changeattest agent-review \
+            --root . --contract "$RUNNER_TEMP/agent-contract.json" \
+            --base "$BASE_SHA" --head "$(git rev-parse HEAD)" \
+            --report "$RUNNER_TEMP/agent-scope.json"
