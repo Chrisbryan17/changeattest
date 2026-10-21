@@ -1,19 +1,38 @@
-name: main
+name: ChangeAttest CI
 
 on:
   push:
-    branches: [main, test-me-*]
-    tags: '*'
+    branches: [main, 'feat/**', 'fix/**']
   pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
 
 jobs:
-  main-windows:
-    uses: asottile/workflows/.github/workflows/tox.yml@v1.11.1
-    with:
-      env: '["py311"]'
-      os: windows-latest
-  main-linux:
-    uses: asottile/workflows/.github/workflows/tox.yml@v1.11.1
-    with:
-      env: '["py311", "py312", "py313", "py314"]'
-      os: ubuntu-latest
+  tests:
+    name: tests / ${{ matrix.os }} / Python ${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ['3.11', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: python -m pip install -e . -r requirements-dev.txt
+      - name: Expose Git's Unix tools on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: '"C:\Program Files\Git\usr\bin" >> $env:GITHUB_PATH'
+      - name: Run regression tests
+        env:
+          GIT_AUTHOR_NAME: ChangeAttest CI
+          GIT_AUTHOR_EMAIL: ci@example.invalid
+          GIT_COMMITTER_NAME: ChangeAttest CI
+          GIT_COMMITTER_EMAIL: ci@example.invalid
+        run: python -m pytest -q tests
