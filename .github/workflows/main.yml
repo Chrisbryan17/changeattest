@@ -44,4 +44,9 @@ jobs:
           GIT_AUTHOR_EMAIL: ci@example.invalid
           GIT_COMMITTER_NAME: ChangeAttest CI
           GIT_COMMITTER_EMAIL: ci@example.invalid
-        run: python -m pytest -q tests
+        run: python -m pytest -q tests --junitxml=changeattest-tests.xml
+      - name: Record executed test evidence
+        run: |
+          python -I -m changeattest junit-evidence --root . --junit changeattest-tests.xml --report changeattest-test-receipt.json
+          python -I -m changeattest render --input changeattest-test-receipt.json --format sarif --output changeattest-tests.sarif
+          python -I -m changeattest store --input changeattest-test-receipt.json --database changeattest-local-history.sqlite
