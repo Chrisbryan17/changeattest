@@ -112,6 +112,24 @@ named check, but does not itself make the workflow files immutable or
 require human approval of policy changes. Use pull requests for changes
 to `main` and monitor repository administrators' ability to alter rules.
 
+## Latest verified engineering additions
+
+- **Restricted optional adapters** with digest-pinned Docker images,
+  read-only mounts, disabled networking, non-root execution and limits;
+  see [sandbox safety](docs/SANDBOX_EXECUTION.md).
+- **Bounded batch Git verification** replaces per-file object subprocesses
+  without accepting mutable working-tree bytes in the trusted gate.
+- **Advisory Ruff caching** can reuse clean-tree Docker lint results.
+  Cached checks are labeled and are **never trusted gate evidence**;
+  see [cache limitations](docs/ADVISORY_CACHE.md).
+- **Tag-only build provenance workflow** prepares Sigstore-backed GitHub
+  artifact attestations, with external verification; it is not proof that
+  a release has already been tagged, attested, or published.
+  See [release provenance](docs/RELEASE_PROVENANCE.md).
+
+For the full current implementation and outstanding gates, see
+[the verified implementation ledger](docs/IMPLEMENTATION_STATUS.md).
+
 ## Expanded platform interfaces
 
 The tracked policy gate now runs against **temporary snapshots created from
