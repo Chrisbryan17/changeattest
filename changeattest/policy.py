@@ -28,6 +28,7 @@ class Policy:
     required_checks: tuple[str, ...]
     allow_skipped_checks: frozenset[str]
     min_files: int
+    include_prefixes: tuple[str, ...]
     timeout_seconds: int
     max_file_bytes: int
     sha256: str
@@ -39,6 +40,7 @@ class Policy:
             'checks': self.required_checks,
             'timeout_seconds': self.timeout_seconds,
             'max_file_bytes': self.max_file_bytes,
+            'include_prefixes': self.include_prefixes,
         }
 
 
@@ -55,6 +57,7 @@ def load_policy(path: Path) -> Policy:
     allowed = {
         'version', 'scope', 'required_checks', 'allow_skipped_checks',
         'min_files', 'timeout_seconds', 'max_file_bytes',
+        'include_prefixes',
     }
     if set(cfg) - allowed or type(cfg.get('version')) is not int or cfg['version'] != 1:
         raise ConfigurationError('Unsupported policy version or property')
@@ -76,6 +79,15 @@ def load_policy(path: Path) -> Policy:
     skipped = names('allow_skipped_checks', [])
     if not required or not set(skipped).issubset(required):
         raise ConfigurationError('Required checks cannot be empty, and skips must be a subset')
+    prefixes = cfg.get('include_prefixes', [])
+    if (
+        type(prefixes) is not list or
+        len(set(x for x in prefixes if type(x) is str)) != len(prefixes) or
+        any(type(x) is not str or not re.fullmatch(r'[A-Za-z0-9_.\-/]+/', x)
+            or x.startswith(('/', './', '../')) or '/./' in x or '/../' in x
+            for x in prefixes)
+    ):
+        raise ConfigurationError('include_prefixes must be distinct safe directory prefixes')
     count = cfg.get('min_files', 1)
     timeout = cfg.get('timeout_seconds', 30)
     max_bytes = cfg.get('max_file_bytes', 8 * 1024 * 1024)
@@ -92,6 +104,7 @@ def load_policy(path: Path) -> Policy:
         required_checks=checks,
         allow_skipped_checks=frozenset(skipped),
         min_files=count,
+        include_prefixes=tuple(sorted(prefixes)),
         timeout_seconds=timeout,
         max_file_bytes=max_bytes,
         sha256=hashlib.sha256(raw).hexdigest(),
@@ -107,19 +120,25 @@ def evaluate(report: dict[str, Any], policy: Policy,
     checksum = report.get('report_sha256')
     unsealed = dict(report)
     unsealed.pop('report_sha256', None)
-    if (
-        type(checksum) is not str or not _SHA256.fullmatch(checksum) or
-        hashlib.sha256(canonical(unsealed)).hexdigest() != checksum
-    ):
+    try:
+        digest_matches = (
+            type(checksum) is str and _SHA256.fullmatch(checksum) is not None
+            and hashlib.sha256(canonical(unsealed)).hexdigest() == checksum
+        )
+    except (TypeError, ValueError, OverflowError):
+        digest_matches = False
+    if not digest_matches:
         errors.add('invalid-report-checksum')
 
     if set(report) != {
         'schema', 'scope', 'head', 'file_count', 'files', 'problems',
-        'checks', 'status', 'report_sha256',
+        'checks', 'status', 'report_sha256', 'include_prefixes',
     }:
         errors.add('unexpected-report-shape')
     if report.get('schema') != SCHEMA or report.get('scope') != policy.scope:
         errors.add('schema-or-scope-mismatch')
+    if report.get('include_prefixes') != list(policy.include_prefixes):
+        errors.add('selection-mismatch')
     if expected_head is not None:
         if not _GIT_SHA.fullmatch(expected_head):
             raise ConfigurationError('Expected head must be a full Git SHA')
@@ -183,7 +202,8 @@ def evaluate(report: dict[str, Any], policy: Policy,
             selected = result['file_count']
             code = result['exit_code']
             output = result['output_sha256']
-            if type(selected) is not int or selected < 0 or selected > count:
+            if (type(selected) is not int or selected < 0 or
+                    type(count) is not int or selected > count):
                 errors.add('invalid-checks')
                 continue
             if status == 'passed':
