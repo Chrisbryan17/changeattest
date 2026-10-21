@@ -67,6 +67,14 @@
     entry: pretty-format-json
     language: python
     types: [json]
+-   id: check-lfs-attributes
+    name: check staged Git LFS attributes and pointers
+    description: ensures that staged LFS pointers agree with staged .gitattributes.
+    entry: check-lfs-attributes
+    language: python
+    types: [file]
+    stages: [pre-commit, pre-push, manual]
+    minimum_pre_commit_version: 3.2.0
 -   id: check-merge-conflict
     name: check for merge conflicts
     description: checks for files that contain merge conflict strings.
