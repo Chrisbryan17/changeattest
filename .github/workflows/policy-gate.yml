@@ -1,0 +1,55 @@
+name: ChangeAttest Policy Gate
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Never grant write access or production secrets to a PR checkout.
+permissions:
+  contents: read
+
+jobs:
+  policy-gate:
+    name: verified-policy-gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the exact revision being evaluated
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up isolated Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Retrieve the trusted policy and implementation revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Use the actual protected default branch, not PR-proposed files.
+          git fetch --no-tags --depth=1 origin refs/heads/main
+          git show FETCH_HEAD:.github/changeattest-policy.toml > "$RUNNER_TEMP/changeattest-policy.toml"
+          printf 'TRUSTED_REF=%s\n' "$(git rev-parse FETCH_HEAD)" >> "$GITHUB_ENV"
+
+      - name: Install reviewed ChangeAttest from main
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --no-cache-dir "git+https://github.com/Chrisbryan17/changeattest.git@$TRUSTED_REF"
+
+      - name: Enforce protected baseline against checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -I -m changeattest gate \
+            --root "$GITHUB_WORKSPACE" \
+            --policy "$RUNNER_TEMP/changeattest-policy.toml" \
+            --expected-head "$GITHUB_SHA" \
+            --report "$RUNNER_TEMP/changeattest-evidence.json"
+
+      - name: Summary
+        if: success()
+        run: echo "ChangeAttest required policy passed on the checked-out revision."
