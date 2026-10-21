@@ -24,6 +24,9 @@ def root(tmp_path):
     (root / 'src' / 'ok.py').write_text('answer = 42\n', encoding='utf-8')
     (root / 'skip_this.py').write_text('n = 42\n', encoding='utf-8')
     subprocess.run(('git', 'add', '-A'), cwd=root, check=True)
+    subprocess.run(('git', '-c', 'user.name=Test',
+                    '-c', 'user.email=test@example.invalid',
+                    'commit', '-qm', 'baseline'), cwd=root, check=True)
     return root
 
 
@@ -80,6 +83,10 @@ def test_target_config_cannot_disable_required_checks(root, policy_file, tmp_pat
 
 def test_ast_error_blocks_gate(root, policy_file, tmp_path):
     (root / 'src' / 'ok.py').write_text('def broken(:\n')
+    subprocess.run(('git', 'add', '-A'), cwd=root, check=True)
+    subprocess.run(('git', '-c', 'user.name=Test', '-c',
+                    'user.email=test@example.invalid', 'commit', '-qm',
+                    'invalid syntax'), cwd=root, check=True)
     code, report = gate(root, policy_file, tmp_path / 'report.json')
     assert code == 1
     assert report['status'] == 'failed'
@@ -87,11 +94,6 @@ def test_ast_error_blocks_gate(root, policy_file, tmp_path):
 
 
 def test_expected_head_mismatch_blocks_gate(root, policy_file, tmp_path):
-    subprocess.run(
-        ('git', '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid',
-         'commit', '-qm', 'initial'),
-        cwd=root, check=True,
-    )
     report_file = tmp_path / 'report.json'
     code, report = gate(root, policy_file, report_file,
                         '--expected-head', 'a' * 40)
@@ -215,8 +217,37 @@ def test_binary_and_symlink_rejections_block_policy(root, policy_file, tmp_path)
     subprocess.run(('git', 'add', 'src/very-large.py'),
                    cwd=root, check=True)
     policy_file.write_text(policy_file.read_text() + 'max_file_bytes = 16\n')
+    subprocess.run(('git', '-c', 'user.name=Test', '-c',
+                    'user.email=test@example.invalid', 'commit', '-qm',
+                    'add oversize file'), cwd=root, check=True)
     code, report = gate(root, policy_file, tmp_path / 'evidence.json')
     assert code == 1
     assert 'incomplete-file-verification' in evaluate(
         report, load_policy(policy_file),
     )
+
+
+def test_gate_scans_committed_bytes_not_mutable_worktree(root, policy_file, tmp_path):
+    source = root / 'src' / 'ok.py'
+    source.write_text('def syntax_error(:\\n')
+    code, report = gate(root, policy_file, tmp_path / 'report.json')
+    assert code == 0
+    assert report['status'] == 'passed'
+    assert report['files'][0]['sha256'] == hashlib.sha256(
+        b'answer = 42\\n',
+    ).hexdigest()
+
+
+def test_gate_rejects_committed_git_symlinks(root, policy_file, tmp_path):
+    import sys
+    if sys.platform == 'win32':
+        pytest.skip('Windows symlink creation needs elevation')
+    (root / 'src' / 'linked.py').symlink_to(root / 'src' / 'ok.py')
+    subprocess.run(('git', 'add', 'src/linked.py'), cwd=root, check=True)
+    subprocess.run(('git', '-c', 'user.name=Test', '-c',
+                    'user.email=test@example.invalid', 'commit', '-qm',
+                    'include symlink'), cwd=root, check=True)
+    code, report = gate(root, policy_file, tmp_path / 'report.json')
+    assert code == 1
+    assert {'path': 'src/linked.py',
+            'reason': 'unsupported-git-object-type'} in report['problems']
