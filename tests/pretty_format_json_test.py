@@ -155,3 +155,28 @@ def test_diffing_output(capsys):
     assert actual_retval == expected_retval
     assert actual_out == expected_out
     assert actual_err == ''
+
+
+@pytest.mark.parametrize(
+    ('original', 'expected'),
+    (
+        (
+            '{"foo": 4.4257052820783003}',
+            '{\n  "foo": 4.4257052820783003\n}\n',
+        ),
+        (
+            '{"nested":{"measurements":[0.10000000000000001,1.0000000000000000001]}}',
+            '{\n  "nested": {\n    "measurements": [\n'
+            '      0.10000000000000001,\n'
+            '      1.0000000000000000001\n    ]\n  }\n}\n',
+        ),
+    ),
+)
+def test_precise_json_numbers_survive_formatting(
+        tmp_path, original, expected,
+):
+    path = tmp_path / 'numbers.json'
+    path.write_text(original, encoding='utf-8')
+    assert main(['--autofix', str(path)]) == 1
+    assert path.read_text(encoding='utf-8') == expected
+    assert main([str(path)]) == 0

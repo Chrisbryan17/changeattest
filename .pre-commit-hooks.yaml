@@ -67,6 +67,14 @@
     entry: pretty-format-json
     language: python
     types: [json]
+-   id: check-lfs-attributes
+    name: check staged Git LFS attributes and pointers
+    description: ensures that staged LFS pointers agree with staged .gitattributes.
+    entry: check-lfs-attributes
+    language: python
+    types: [file]
+    stages: [pre-commit, pre-push, manual]
+    minimum_pre_commit_version: 3.2.0
 -   id: check-merge-conflict
     name: check for merge conflicts
     description: checks for files that contain merge conflict strings.
@@ -109,6 +117,12 @@
     entry: debug-statement-hook
     language: python
     types: [python]
+-   id: detect-openpgp-secret-key
+    name: detect binary OpenPGP secret keys (best-effort)
+    description: rejects recognizable binary OpenPGP secret-key packets at file start.
+    entry: detect-openpgp-secret-key
+    language: python
+    types: [file]
 -   id: destroyed-symlinks
     name: detect destroyed symlinks
     description: detects symlinks which are changed to regular files with a content of a path which that symlink was pointing to.
