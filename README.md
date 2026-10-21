@@ -72,6 +72,29 @@ a substitute for independent CI enforcement.
 See [CLI evidence specification](docs/EVIDENCE_V1.md) for the schema and
 security boundaries.
 
+## Policy gate (candidate release)
+
+ChangeAttest also provides `changeattest gate` for **mandatory verification
+with an explicit policy**. Unlike the ordinary `check` command, the gate
+ignores the target checkout's `.changeattest.toml` and **fails** when no
+files are selected, required checks are missing or skipped without permission,
+a file cannot be verified, or the checked-out Git SHA differs.
+
+```bash
+changeattest gate --root . \
+  --policy .github/changeattest-policy.toml \
+  --expected-head "$(git rev-parse HEAD)" \
+  --report evidence.json
+```
+
+For enforcement in CI, retrieve the gate implementation and policy from a
+**trusted, protected revision**, run the checks again in CI, and configure
+repository branch rules requiring the gate's successful status. A locally
+generated checksum is not a signature or proof of provenance. The default
+policy currently covers only `changeattest/` and `pre_commit_hooks/`.
+
+Read the complete [policy and trust model](docs/POLICY_GATE.md).
+
 ## Run hooks in a local development checkout
 
 ```bash
