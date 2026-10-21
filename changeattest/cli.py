@@ -83,6 +83,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     tools.add_argument('--timeout', type=int, default=120)
     tools.add_argument('--docker-image',
                        help='Digest-pinned Docker image for restricted execution')
+    tools.add_argument('--cache-dir',
+                       help='Optional advisory cache, outside repo; Docker Ruff only')
     tools.add_argument('--report', required=True)
 
     sign = sub.add_parser('sign', help='Sign existing evidence with an external Ed25519 key')
@@ -196,11 +198,14 @@ def main(argv: Sequence[str] | None = None) -> int:
                       file=sys.stderr)
             report = run_adapters(root, args.adapter, paths,
                                   timeout=args.timeout, jobs=args.jobs,
-                                  sandbox_image=args.docker_image)
+                                  sandbox_image=args.docker_image,
+                                  cache_dir=Path(args.cache_dir) if args.cache_dir else None)
             _write_report(args.report, canonical(report))
             for result in report['results']:
                 print(f"  {result['id']}: {result['status']}")
-            return 0 if report['status'] == 'passed' else (
+            if report['status'] == 'passed-with-cache':
+                print('NOTE: cached results are advisory, not fresh verification')
+            return 0 if report['status'] in ('passed', 'passed-with-cache') else (
                 1 if report['status'] == 'failed' else 2
             )
 
