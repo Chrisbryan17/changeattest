@@ -105,7 +105,7 @@ def _imports(tree: ast.AST, source: str,
                 found.update(_resolve_import(submodule, modules))
         elif isinstance(node, ast.Call):
             call = node.func
-            if (isinstance(call, ast.Name) and call.id == '__import__') or (
+            if (isinstance(call, ast.Name) and call.id in ('__import__', 'import_module', 'reload')) or (
                 isinstance(call, ast.Attribute)
                 and call.attr in ('import_module', 'reload')
             ):
