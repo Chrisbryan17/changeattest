@@ -81,6 +81,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                        choices=tuple(ADAPTER_INDEX))
     tools.add_argument('--jobs', type=int, default=4)
     tools.add_argument('--timeout', type=int, default=120)
+    tools.add_argument('--docker-image',
+                       help='Digest-pinned Docker image for restricted execution')
     tools.add_argument('--report', required=True)
 
     sign = sub.add_parser('sign', help='Sign existing evidence with an external Ed25519 key')
@@ -188,8 +190,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             if names.returncode:
                 raise ConfigurationError('Unable to enumerate Git files')
             paths = [os.fsdecode(x) for x in names.stdout.split(b'\0') if x]
+            if not args.docker_image:
+                print('WARNING: local adapters may execute project-controlled code; '
+                      'use --docker-image for a restricted container',
+                      file=sys.stderr)
             report = run_adapters(root, args.adapter, paths,
-                                  timeout=args.timeout, jobs=args.jobs)
+                                  timeout=args.timeout, jobs=args.jobs,
+                                  sandbox_image=args.docker_image)
             _write_report(args.report, canonical(report))
             for result in report['results']:
                 print(f"  {result['id']}: {result['status']}")

@@ -91,7 +91,8 @@ def _run(adapter: Adapter, root: Path, selected: list[str],
 
 
 def run_adapters(root: Path, selected_ids: list[str], files: list[str],
-                 timeout: int = 120, jobs: int = 4) -> dict[str, Any]:
+                 timeout: int = 120, jobs: int = 4,
+                 sandbox_image: str | None = None) -> dict[str, Any]:
     if (
         any(x not in ADAPTER_INDEX for x in selected_ids) or
         len(selected_ids) != len(set(selected_ids)) or
@@ -101,10 +102,19 @@ def run_adapters(root: Path, selected_ids: list[str], files: list[str],
     root = root.resolve()
     tasks = [(ADAPTER_INDEX[x], _select(ADAPTER_INDEX[x], root, files))
              for x in sorted(selected_ids)]
+    if sandbox_image is not None:
+        # Lazy import avoids an import cycle: sandbox shares Adapter registry
+        # descriptors but never imports the application runner.
+        from changeattest.sandbox import DockerSandbox
+        from changeattest.sandbox import run_in_docker
+        sandbox = DockerSandbox(sandbox_image)
+        runner = lambda task: run_in_docker(
+            task[0], task[1], root, timeout, sandbox,
+        )
+    else:
+        runner = lambda task: _run(task[0], root, task[1], timeout)
     with concurrent.futures.ThreadPoolExecutor(max_workers=jobs) as pool:
-        results = list(pool.map(
-            lambda task: _run(task[0], root, task[1], timeout), tasks,
-        ))
+        results = list(pool.map(runner, tasks))
     states = {r['status'] for r in results}
     status = ('error' if 'error' in states or 'unavailable' in states else
               'failed' if 'failed' in states else
@@ -113,6 +123,8 @@ def run_adapters(root: Path, selected_ids: list[str], files: list[str],
         'schema': 'changeattest.tools.v1', 'status': status,
         'results': results, 'selected_tools': sorted(selected_ids),
         'root_git_head': None,
+        'execution_mode': 'docker-restricted' if sandbox_image else 'local-unrestricted',
+        'sandbox_image': sandbox_image,
     }
     try:
         commit = subprocess.run(('git', 'rev-parse', 'HEAD'), cwd=root,
