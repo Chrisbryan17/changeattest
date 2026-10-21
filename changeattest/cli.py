@@ -15,6 +15,7 @@ from changeattest.engine import load_config
 from changeattest.engine import scan
 from changeattest.policy import evaluate
 from changeattest.policy import load_policy
+from changeattest.snapshot import scan_commit
 
 
 def _write_report(filename: str, payload: bytes) -> None:
@@ -68,7 +69,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             # Never consult the target checkout's .changeattest.toml in gate
             # mode: doing so could disable checks mandated by the policy.
             policy = load_policy(Path(args.policy))
-            result = scan(root, policy.scope, policy.runner_config())
+            result = (scan_commit(root, policy.runner_config())
+                      if policy.scope == 'tracked' else
+                      scan(root, policy.scope, policy.runner_config()))
             violations = evaluate(result, policy, args.expected_head)
             _write_report(args.report, canonical(result))
         else:
