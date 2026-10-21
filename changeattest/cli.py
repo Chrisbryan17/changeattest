@@ -28,6 +28,7 @@ from changeattest.snapshot import scan_commit
 from changeattest.reports import render
 from changeattest.history import store as store_evidence
 from changeattest.history import serve as serve_evidence
+from changeattest.test_receipts import collect as collect_test_receipt
 
 
 def _write_report(filename: str, payload: bytes) -> None:
@@ -114,6 +115,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     server = sub.add_parser('serve', help='Read-only localhost evidence dashboard')
     server.add_argument('--database', required=True)
     server.add_argument('--port', type=int, default=8765)
+    junit = sub.add_parser('junit-evidence',
+                           help='Hash real JUnit result files into an unsigned test receipt')
+    junit.add_argument('--root', default='.')
+    junit.add_argument('--junit', action='append', required=True)
+    junit.add_argument('--report', required=True)
+
     args = parser.parse_args(argv)
 
     try:
@@ -152,6 +159,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0 if good else 1
 
         root = _root(args.root)
+        if args.action == 'junit-evidence':
+            receipt = collect_test_receipt(root, args.junit)
+            _write_report(args.report, canonical(receipt))
+            print(f"JUnit evidence: {receipt['status']} "
+                  f"({receipt['test_cases']} test cases)")
+            return 0 if receipt['status'] == 'passed' else 1
 
         if args.action == 'agent-review':
             contract = read_contract(args.contract)
