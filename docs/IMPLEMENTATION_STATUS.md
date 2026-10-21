@@ -69,3 +69,36 @@ before treating the latest commit as verified.
 
 New milestones must include regression tests and execution evidence; do not
 mark a workstream complete merely because a module or workflow exists.
+
+## Additional verified work (PRs #14–#17, 2026-10-21)
+
+- **#14: Python change-impact intelligence.** Reads exact Git revision
+  objects, builds a transitive Python import graph and suggests relevant
+  tests. Automatically recommends the full suite when analysis is
+  ambiguous. Reports are explicitly advisory; mandatory CI still executes
+  the full matrix.
+- **#15: GitHub Actions static security audit.** Inspect committed
+  workflow definitions for privileged PR execution, risky permissions,
+  shell injection patterns and non-pinned actions. The first live
+  repository audit found 0 critical, 0 high and 20 medium findings.
+- **#16: GitHub Actions dependency pinning.** Upgraded reviewed actions,
+  pinned every remote action to a full upstream commit SHA, disabled
+  PR-checkout credential persistence and added regression enforcement.
+  The next self-audit reported 0 critical, 0 high and 0 medium findings.
+- **#17: Real Linux Docker sandbox smoke.** Added a standard-library
+  Python AST adapter and a live GitHub Actions job that passed valid
+  Python and rejected invalid Python inside a restricted container.
+  Windows Docker execution and hostile-host security remain unverified.
+- **External project validation:** Tested the ChangeAttest policy
+  gate against the real
+  [Handwired WebGPU repository](CASE_STUDY_HANDWIRED.md),
+  not just synthetic test fixtures. The advisory CI job returned PASS.
+
+### Outstanding verification milestones
+
+Enforce trusted workflow approval through repository/organization governance;
+test adversarial PR workflow modifications; validate signed, tagged release
+provenance and immutable publication; extend typed language/test coverage;
+measure actual runtime performance improvements and false-negative rates;
+and implement secure tenant isolation before promising any hosted service.
+
