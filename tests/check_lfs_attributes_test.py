@@ -12,12 +12,15 @@ def _git(*args: str) -> None:
 
 
 def _stage(*filenames: str) -> None:
-    # Keep tests independent of whether git-lfs is installed on the host.
-    _git(
-        '-c', 'filter.lfs.clean=',
-        '-c', 'filter.lfs.required=false',
-        'add', '--', *filenames,
-    )
+    # Stage the exact bytes, bypassing global LFS process filters. Git LFS's
+    # process filter can override filter.lfs.clean even when that is disabled.
+    for filename in filenames:
+        blob_sha = subprocess.check_output(
+            ('git', 'hash-object', '-w', '--no-filters', '--', filename),
+            text=True,
+        ).strip()
+        _git('update-index', '--add', '--cacheinfo',
+             f'100644,{blob_sha},{filename}')
 
 
 @pytest.fixture
