@@ -63,7 +63,7 @@ def test_policy_gate_runs_required_checks(root, policy_file, tmp_path):
     ]
     assert evaluate(report, load_policy(policy_file)) == ()
     assert hashlib.sha256(canonical({
-        k: v for k, v in report.items() if k != 'report_sha256',
+        k: v for k, v in report.items() if k != 'report_sha256'
     })).hexdigest() == report['report_sha256']
 
 
