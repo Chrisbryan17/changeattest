@@ -13,6 +13,8 @@ from changeattest.engine import ConfigurationError
 from changeattest.engine import canonical
 from changeattest.engine import load_config
 from changeattest.engine import scan
+from changeattest.policy import evaluate
+from changeattest.policy import load_policy
 
 
 def _write_report(filename: str, payload: bytes) -> None:
@@ -42,6 +44,13 @@ def main(argv: Sequence[str] | None = None) -> int:
                        default='staged', help='File selection (default: staged)')
     check.add_argument('--config', help='TOML config relative to Git root')
     check.add_argument('--report', help='Write a deterministic JSON report')
+    gate = sub.add_parser('gate', help='Execute mandatory checks from an explicit policy')
+    gate.add_argument('--root', default='.', help='Git checkout to verify')
+    gate.add_argument('--policy', required=True,
+                      help='Externally controlled TOML policy, not target config')
+    gate.add_argument('--report', required=True, help='Required JSON evidence output')
+    gate.add_argument('--expected-head',
+                      help='Full Git commit SHA expected for this checkout')
     args = parser.parse_args(argv)
 
     try:
@@ -55,13 +64,30 @@ def main(argv: Sequence[str] | None = None) -> int:
         if proc.returncode:
             raise ConfigurationError('Not inside a Git repository')
         git_root = Path(os.fsdecode(proc.stdout.strip()))
-        config = load_config(git_root, args.config)
-        result = scan(root, args.scope, config)
-        if args.report:
+        if args.action == 'gate':
+            # Never consult the target checkout's .changeattest.toml in gate
+            # mode: doing so could disable checks mandated by the policy.
+            policy = load_policy(Path(args.policy))
+            result = scan(root, policy.scope, policy.runner_config())
+            violations = evaluate(result, policy, args.expected_head)
             _write_report(args.report, canonical(result))
+        else:
+            config = load_config(git_root, args.config)
+            result = scan(root, args.scope, config)
+            violations = ()
+            if args.report:
+                _write_report(args.report, canonical(result))
     except (ConfigurationError, OSError, subprocess.TimeoutExpired) as exc:
         print(f'changeattest: configuration or I/O error: {exc}', file=sys.stderr)
         return 2
+
+    if args.action == 'gate':
+        for code in violations:
+            print(f'  policy violation: {code}')
+        print(f'ChangeAttest policy gate: {"BLOCK" if violations else "PASS"} '
+              f'(policy sha256:{policy.sha256[:16]}; '
+              f'evidence sha256:{result["report_sha256"][:16]})')
+        return 1 if violations else 0
 
     for finding in result['checks']:
         print(f"  {finding['id']}: {finding['status']} "
