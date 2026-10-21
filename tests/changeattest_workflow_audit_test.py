@@ -100,7 +100,9 @@ def test_floating_action_refs_and_download_piped_shell_warn():
 def test_invalid_yaml_rejected_without_crashing():
     assert rules('on: [') == ['invalid-workflow-yaml']
     assert rules('- 1\n- 2\n') == ['invalid-workflow-shape']
-    assert rules('on: pull_request\n') == [\n        'unspecified-workflow-token-permissions', 'missing-jobs',\n    ]
+    assert rules('on: pull_request\n') == [
+        'unspecified-workflow-token-permissions', 'missing-jobs',
+    ]
 
 
 def _git(root, *argv):
