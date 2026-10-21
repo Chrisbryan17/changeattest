@@ -103,11 +103,14 @@ runs on PRs targeting `main` and on pushes to `main`. It fetches the
 revision in a read-only CI job. Its stable status-check name is
 `verified-policy-gate`.
 
-**Repository administration is still necessary:** configure a main-branch
-ruleset that requires `verified-policy-gate` to succeed, protects the policy
-and workflow, and prevents bypassing required checks. Until those settings
-are enabled, GitHub may allow merging despite a gate failure. Workflow
-success alone does not prove that a branch is protected.
+**Active repository enforcement:** On October 21, 2026,
+[GitHub ruleset #25567644](https://github.com/Chrisbryan17/changeattest/rules/25567644)
+was enabled for the default branch. It requires `verified-policy-gate`
+to succeed, so normal merges must satisfy the gate. The policy and CI
+workflow should still be reviewed carefully: this ruleset enforces the
+named check, but does not itself make the workflow files immutable or
+require human approval of policy changes. Use pull requests for changes
+to `main` and monitor repository administrators' ability to alter rules.
 
 ## Run hooks in a local development checkout
 
