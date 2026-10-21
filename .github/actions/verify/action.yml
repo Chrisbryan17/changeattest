@@ -1,0 +1,48 @@
+name: ChangeAttest verification
+description: Verify checked-out Git HEAD against explicit reviewed policy
+inputs:
+  engine-ref:
+    description: Reviewed 40/64-character commit SHA of the ChangeAttest engine
+    required: true
+  policy:
+    description: Local path to reviewed policy file from a trusted baseline
+    required: true
+  report:
+    description: Path for unsigned evidence output
+    required: false
+    default: changeattest-evidence.json
+runs:
+  using: composite
+  steps:
+    - name: Validate immutable engine identity
+      shell: bash
+      env:
+        ENGINE_REF: ${{ inputs.engine-ref }}
+      run: |
+        set -euo pipefail
+        [[ "$ENGINE_REF" =~ ^[0-9a-f]{40}([0-9a-f]{24})?$ ]] || {
+          echo "::error::engine-ref must be a full commit SHA"
+          exit 2
+        }
+    - name: Configure Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+    - name: Install pinned verification engine
+      shell: bash
+      env:
+        ENGINE_REF: ${{ inputs.engine-ref }}
+      run: |
+        set -euo pipefail
+        python -m pip install "git+https://github.com/Chrisbryan17/changeattest.git@$ENGINE_REF"
+    - name: Execute the policy gate
+      shell: bash
+      env:
+        CA_POLICY: ${{ inputs.policy }}
+        CA_REPORT: ${{ inputs.report }}
+      run: |
+        set -euo pipefail
+        python -I -m changeattest gate --root "$GITHUB_WORKSPACE" \
+          --policy "$CA_POLICY" \
+          --expected-head "$(git rev-parse HEAD)" \
+          --report "$CA_REPORT"
