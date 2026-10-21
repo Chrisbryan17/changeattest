@@ -4,7 +4,7 @@
 
 ChangeAttest is an independent, open-source developer preflight project. It begins with a battle-tested library of small Git hooks and is being developed into a change-aware quality, security, and test-evidence gate for human and AI-assisted software development.
 
-> **Status:** Foundation development. The hook library runs today; the planned orchestration engine, attestations, dashboards, and agent integrations are **not implemented yet**. Do not treat a passing hook run as proof of security or production readiness.
+> **Status:** Early engineering release. The original hook library and initial `changeattest check` evidence CLI are implemented. Signed attestations, arbitrary tool orchestration, dashboards, and agent integrations are **not** implemented. The current evidence hash is an unsigned checksum, not proof from an independent authority.
 
 ## What works today
 
@@ -20,6 +20,58 @@ Our foundation branch adds or fixes:
 
 See [the issue audit](docs/ISSUE_AUDIT.md) for scope and limitations.
 
+## ChangeAttest CLI (first usable preflight engine)
+
+The new CLI executes a fixed set of existing, non-mutating checks and emits a
+machine-readable verification record. It is not a general command runner:
+config files cannot inject shell commands, executable paths, or Python modules.
+
+```bash
+python -m pip install -e .
+changeattest --version
+changeattest check --scope tracked --report evidence.json
+# For staged changes (the default):
+changeattest check --scope staged --report staged-evidence.json
+```
+
+You can also run `python -m changeattest check`.
+
+**Important semantics:** `staged` selects paths from the Git index, then
+checks their working-tree bytes. If a staged file has additional unstaged
+modifications, the scan **fails closed** instead of claiming to verify the
+staged snapshot. `tracked` checks the current working tree, whether or not
+those changes have been staged. Neither mode verifies untracked files.
+Symlinks and over-limit files are reported as incomplete verification errors.
+
+Exit codes: `0` = checks passed (or nothing selected), `1` = check failed,
+`2` = verification incomplete or an operational/configuration error.
+The report explicitly uses `status: "no-files"` when no files were selected.
+
+The default check set is `json`, `toml`, `yaml`, `merge-conflict`,
+`private-key`, and `openpgp-secret-key`. None automatically edits files.
+The binary OpenPGP check is intentionally best-effort.
+
+Optional configuration at the Git root:
+
+```toml
+[changeattest]
+version = 1
+checks = ["json", "toml", "yaml", "merge-conflict", "private-key", "openpgp-secret-key"]
+timeout_seconds = 30
+max_file_bytes = 8388608
+```
+
+The `checks` list can contain only built-in IDs. The JSON report includes
+selected file SHA-256 digests, the Git HEAD, executed check IDs, outcomes,
+exit codes, a digest of each check's output, and a digest of the overall
+record. **Raw scanner output is deliberately withheld** to avoid disclosing
+secrets via CI logs or report artifacts. A report checksum is **not** a
+cryptographic signature or remote attestation, and a passed report is not
+a substitute for independent CI enforcement.
+
+See [CLI evidence specification](docs/EVIDENCE_V1.md) for the schema and
+security boundaries.
+
 ## Run hooks in a local development checkout
 
 ```bash
@@ -30,9 +82,9 @@ check-json example.json
 check-lfs-attributes path/to/staged-file.bin
 ```
 
-`check-lfs-attributes` examines the **Git index** and must be invoked inside a repository with staged content. Some commands above require the foundation work to be merged into the default branch; until then, use the foundation branch.
+`check-lfs-attributes` examines the **Git index** and must be invoked inside a repository with staged content. These hooks are available on `main`; use a reviewed commit SHA when pinning them for production use.
 
-ChangeAttest currently preserves the upstream Python package name `pre_commit_hooks` and CLI entry points for compatibility. A separate public `changeattest` CLI and the independent policy/evidence engine will be introduced without claiming they're already built.
+ChangeAttest now uses its own Python distribution name `changeattest`, while retaining the legacy `pre_commit_hooks` import path and hook entry points for compatibility. The new `changeattest` CLI is implemented; policy-driven, signed verification and distributed orchestration remain future work.
 
 ### Use with the pre-commit framework
 
