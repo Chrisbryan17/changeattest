@@ -208,10 +208,10 @@ def test_repository_cannot_shadow_trusted_python_check_module(sample_repo, tmp_p
     fake.mkdir()
     (fake / '__init__.py').write_text('')
     (fake / 'check_json.py').write_text(
-        "from pathlib import Path\\n"
-        "Path('EXECUTED_UNTRUSTED_CODE').write_text('pwned')\\n"
+        "from pathlib import Path\n"
+        "Path('EXECUTED_UNTRUSTED_CODE').write_text('pwned')\n"
     )
-    (sample_repo / 'safe.json').write_text('{"trusted":true}\\n')
+    (sample_repo / 'safe.json').write_text('{"trusted":true}\n')
     git(sample_repo, 'add', 'safe.json')
     code, report = run_report(sample_repo, tmp_path / 'report.json')
     assert code == 0
