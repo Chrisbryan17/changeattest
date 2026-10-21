@@ -4,7 +4,7 @@
 
 ChangeAttest is an independent, open-source developer preflight project. It begins with a battle-tested library of small Git hooks and is being developed into a change-aware quality, security, and test-evidence gate for human and AI-assisted software development.
 
-> **Status:** Pre-release engineering project. The library, policy gate, immutable Git commit snapshots, optional tool adapters, Ed25519 evidence envelopes, agent scope contracts, exporters and local dashboard are implemented on the platform branch. **A hosted SaaS, cryptographically authenticated runner, fully isolated third-party execution, automatic agent integrations, and enterprise governance are not delivered.** Signing a self-asserted report does not establish independent execution.
+> **Status:** Pre-release engineering project. The library, policy gate, immutable Git commit snapshots, optional tool adapters, Ed25519 evidence envelopes, agent scope contracts, exporters and local dashboard are implemented on `main`. **A hosted SaaS, cryptographically authenticated runner, fully isolated third-party execution, automatic agent integrations, and enterprise governance are not delivered.** Signing a self-asserted report does not establish independent execution.
 
 ## What works today
 
