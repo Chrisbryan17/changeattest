@@ -45,7 +45,7 @@ class DockerSandbox:
 
 def _container_executable(adapter: Adapter) -> str:
     # sys.executable is a host path, so map it to the container's Python.
-    return 'python' if adapter.id == 'pytest' else adapter.binary
+    return 'python' if adapter.id in ('pytest', 'python-ast-stdlib') else adapter.binary
 
 
 def build_argv(

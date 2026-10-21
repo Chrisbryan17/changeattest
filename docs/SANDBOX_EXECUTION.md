@@ -1,8 +1,11 @@
 # Restricted Docker tool adapters
 
-**Status:** opt-in Linux/Windows-compatible Docker CLI integration with
-unit-tested command construction. Container runtime execution has not yet
-been verified on every supported operating system.
+**Status:** opt-in restricted Docker execution with tested command
+construction on Linux and Windows. A dedicated GitHub Actions job now
+executes the standard-library AST checker in a real Linux Docker container
+and requires a valid Python file to pass and an invalid file to fail. This
+does not establish Windows Docker runtime coverage or hostile-container
+escape resistance.
 
 `changeattest tools` historically launches external linters and test runners
 directly on the developer's computer. Those programs, config plugins, and tests
@@ -39,6 +42,24 @@ Some tools require writable caches, package registries or dependencies:
 configure the image in advance. A read-only source mount prevents in-place
 autofixes. The `pytest` adapter runs project code; this is an intentionally
 *untrusted* evaluation mode, so use disposable and unprivileged workers.
+
+## Runtime smoke test
+
+The `docker-restrictions-linux-smoke` job in
+`.github/workflows/main.yml` pulls the official Python 3.13 slim image on
+a disposable Linux runner, resolves its actual OCI sha256 digest, and passes
+that digest into `changeattest tools --adapter python-ast-stdlib`. The
+image is selected by a moving tag **only for the smoke test**; real
+production execution should pin an independently approved full digest.
+
+The first check parses a valid committed Python file under the restricted
+container and must pass. The second presents invalid Python syntax and must
+fail with nonzero exit code. The check uses Python's standard `ast.parse`;
+it doesn't install or execute project-controlled plugins.
+
+This proves basic command/runtime integration when the job succeeds, not
+that the Docker host is protected against container escapes, side channels
+or kernel vulnerabilities.
 
 ## Limitations
 
