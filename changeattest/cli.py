@@ -30,6 +30,8 @@ from changeattest.reports import render
 from changeattest.history import store as store_evidence
 from changeattest.history import serve as serve_evidence
 from changeattest.test_receipts import collect as collect_test_receipt
+from changeattest.impact import ImpactError
+from changeattest.impact import plan_impact
 
 
 def _write_report(filename: str, payload: bytes) -> None:
@@ -127,6 +129,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     junit.add_argument('--junit', action='append', required=True)
     junit.add_argument('--report', required=True)
 
+    impact = sub.add_parser(
+        'impact', help='Suggest Python tests from an advisory Git import graph')
+    impact.add_argument('--root', default='.')
+    impact.add_argument('--base', required=True, help='Full baseline commit SHA')
+    impact.add_argument('--head', required=True, help='Full proposed commit SHA')
+    impact.add_argument('--report', required=True, help='JSON explanation output')
+
     args = parser.parse_args(argv)
 
     try:
@@ -165,6 +174,16 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0 if good else 1
 
         root = _root(args.root)
+        if args.action == 'impact':
+            result = plan_impact(root, args.base, args.head)
+            _write_report(args.report, canonical(result))
+            print(f"Impact plan: {result['decision']} "
+                  f"({result['selected_count']}/{result['total_count']} tests)")
+            for reason in result['fallback_reasons']:
+                print(f'  full-suite fallback: {reason}')
+            print('Mandatory CI recommendation: run full test suite')
+            return 0
+
         if args.action == 'junit-evidence':
             receipt = collect_test_receipt(root, args.junit)
             _write_report(args.report, canonical(receipt))
@@ -243,6 +262,6 @@ def main(argv: Sequence[str] | None = None) -> int:
             1 if result['status'] == 'failed' else 2
         )
     except (ConfigurationError, OSError, subprocess.TimeoutExpired,
-            ValueError, KeyError) as exc:
+            ValueError, KeyError, ImpactError) as exc:
         print(f'changeattest: configuration or I/O error: {exc}', file=sys.stderr)
         return 2
