@@ -25,6 +25,9 @@ from changeattest.engine import scan
 from changeattest.policy import evaluate
 from changeattest.policy import load_policy
 from changeattest.snapshot import scan_commit
+from changeattest.reports import render
+from changeattest.history import store as store_evidence
+from changeattest.history import serve as serve_evidence
 
 
 def _write_report(filename: str, payload: bytes) -> None:
@@ -97,9 +100,40 @@ def main(argv: Sequence[str] | None = None) -> int:
     agent.add_argument('--trusted-key')
     agent.add_argument('--report', required=True)
 
+    rendering = sub.add_parser('render', help='Export HTML, SARIF or JUnit evidence')
+    rendering.add_argument('--input', required=True)
+    rendering.add_argument('--format', choices=('html', 'sarif', 'junit'),
+                           required=True)
+    rendering.add_argument('--output', required=True)
+
+    history = sub.add_parser('store', help='Save checksum/signed evidence locally')
+    history.add_argument('--input', required=True)
+    history.add_argument('--database', required=True)
+    history.add_argument('--trusted-key')
+
+    server = sub.add_parser('serve', help='Read-only localhost evidence dashboard')
+    server.add_argument('--database', required=True)
+    server.add_argument('--port', type=int, default=8765)
     args = parser.parse_args(argv)
 
     try:
+        if args.action == 'render':
+            _write_report(args.output,
+                          render(load_json_file(args.input), args.format))
+            print(f'Wrote {args.format} evidence report')
+            return 0
+
+        if args.action == 'store':
+            key = Path(args.trusted_key).read_bytes() if args.trusted_key else None
+            digest = store_evidence(Path(args.database),
+                                    load_json_file(args.input), key)
+            print(f'Local evidence stored: {digest[:16]}')
+            return 0
+
+        if args.action == 'serve':
+            serve_evidence(Path(args.database), args.port)
+            return 0
+
         if args.action == 'sign':
             envelope = sign_evidence(
                 load_json_file(args.input),
