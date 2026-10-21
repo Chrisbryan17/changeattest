@@ -95,6 +95,20 @@ policy currently covers only `changeattest/` and `pre_commit_hooks/`.
 
 Read the complete [policy and trust model](docs/POLICY_GATE.md).
 
+### GitHub pull-request policy status
+
+The [separate Policy Gate workflow](.github/workflows/policy-gate.yml)
+runs on PRs targeting `main` and on pushes to `main`. It fetches the
+**approved default-branch policy and code**, then checks the submitted
+revision in a read-only CI job. Its stable status-check name is
+`verified-policy-gate`.
+
+**Repository administration is still necessary:** configure a main-branch
+ruleset that requires `verified-policy-gate` to succeed, protects the policy
+and workflow, and prevents bypassing required checks. Until those settings
+are enabled, GitHub may allow merging despite a gate failure. Workflow
+success alone does not prove that a branch is protected.
+
 ## Run hooks in a local development checkout
 
 ```bash
