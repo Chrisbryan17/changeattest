@@ -126,6 +126,18 @@ def test_dynamic_imports_fall_back(repo):
     assert 'dynamic-or-star-import' in result['fallback_reasons']
 
 
+def test_import_module_function_call_requires_full_suite(repo):
+    root, base = repo
+    head = changed(
+        root, 'pkg/lib.py',
+        "from importlib import import_module\n\n"
+        "something = import_module('pkg.other')\n",
+    )
+    result = plan_impact(root, base, head)
+    assert result['decision'] == 'full'
+    assert 'dynamic-or-star-import' in result['fallback_reasons']
+
+
 def test_syntax_errors_fall_back(repo):
     root, base = repo
     head = changed(root, 'pkg/lib.py', 'def broken(:\n')
