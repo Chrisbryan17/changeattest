@@ -136,3 +136,46 @@ def test_requirement_object():
     assert top_of_file < requirement_foo
     assert requirement_foo > requirement_bar
     assert requirement_bar < requirement_foo
+
+
+@pytest.mark.parametrize(
+    ('original', 'expected'),
+    (
+        (
+            b'--extra-index-url https://extra.example/simple\n'
+            b'--index-url https://primary.example/simple\n'
+            b'requests==2.31.0\n',
+            b'--index-url https://primary.example/simple\n'
+            b'--extra-index-url https://extra.example/simple\n'
+            b'requests==2.31.0\n',
+        ),
+        (
+            b'--extra-index-url=https://extra.example/simple\n'
+            b'--index-url=https://primary.example/simple\n',
+            b'--index-url=https://primary.example/simple\n'
+            b'--extra-index-url=https://extra.example/simple\n',
+        ),
+        (
+            b'--extra-index-url https://extra.example/simple\n'
+            b'-i https://primary.example/simple\n',
+            b'-i https://primary.example/simple\n'
+            b'--extra-index-url https://extra.example/simple\n',
+        ),
+        (
+            b'--index-url https://primary.example/simple\n'
+            b'--extra-index-url https://extra.example/simple\n'
+            b'alpha==1\nzulu==1\n',
+            b'--index-url https://primary.example/simple\n'
+            b'--extra-index-url https://extra.example/simple\n'
+            b'alpha==1\nzulu==1\n',
+        ),
+    ),
+)
+def test_primary_package_index_precedes_extra_indexes(
+        tmp_path, original, expected,
+):
+    path = tmp_path / 'requirements.txt'
+    path.write_bytes(original)
+    assert main([str(path)]) == (FAIL if original != expected else PASS)
+    assert path.read_bytes() == expected
+    assert main([str(path)]) == PASS
