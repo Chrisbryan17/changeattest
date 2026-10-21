@@ -12,10 +12,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout proposed workflow definitions as untrusted data
-        uses: actions/checkout@v4
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803  # v6
         with:
           persist-credentials: false
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6
         with:
           python-version: '3.13'
       - name: Install scanner in read-only disposable runner
@@ -28,7 +28,7 @@ jobs:
             --root . \
             --report "$RUNNER_TEMP/workflow-audit.json"
       - name: Attach advisory report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4  # v5
         with:
           name: changeattest-workflow-risk-report
           path: ${{ runner.temp }}/workflow-audit.json
