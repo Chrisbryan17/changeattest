@@ -32,6 +32,8 @@ from changeattest.history import serve as serve_evidence
 from changeattest.test_receipts import collect as collect_test_receipt
 from changeattest.impact import ImpactError
 from changeattest.impact import plan_impact
+from changeattest.workflow_audit import WorkflowAuditError
+from changeattest.workflow_audit import audit_commit
 
 
 def _write_report(filename: str, payload: bytes) -> None:
@@ -136,6 +138,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     impact.add_argument('--head', required=True, help='Full proposed commit SHA')
     impact.add_argument('--report', required=True, help='JSON explanation output')
 
+    workflows = sub.add_parser(
+        'workflow-audit', help='Inspect GitHub Actions workflows in immutable Git HEAD')
+    workflows.add_argument('--root', default='.')
+    workflows.add_argument('--report', required=True)
+    workflows.add_argument('--fail-on-high', action='store_true',
+                           help='Fail for critical/high findings (advisory-only by default)')
+
     args = parser.parse_args(argv)
 
     try:
@@ -174,6 +183,18 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0 if good else 1
 
         root = _root(args.root)
+        if args.action == 'workflow-audit':
+            result = audit_commit(root)
+            _write_report(args.report, canonical(result))
+            counts = result['finding_counts']
+            print(f"Workflow audit: {result['workflows_scanned']} files, "
+                  f"{counts['critical']} critical / {counts['high']} high / "
+                  f"{counts['medium']} medium findings")
+            print('Heuristic only: does not authenticate GitHub workflow execution')
+            return 1 if args.fail_on_high and (
+                counts['critical'] or counts['high']
+            ) else 0
+
         if args.action == 'impact':
             result = plan_impact(root, args.base, args.head)
             _write_report(args.report, canonical(result))

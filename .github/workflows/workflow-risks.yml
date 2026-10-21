@@ -1,0 +1,36 @@
+name: ChangeAttest Workflow Risk Audit
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  workflow-risks:
+    name: github-workflow-risks-advisory
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout proposed workflow definitions as untrusted data
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install scanner in read-only disposable runner
+        run: python -m pip install .
+      - name: Produce source-backed workflow findings
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -I -m changeattest workflow-audit \
+            --root . \
+            --report "$RUNNER_TEMP/workflow-audit.json"
+      - name: Attach advisory report
+        uses: actions/upload-artifact@v4
+        with:
+          name: changeattest-workflow-risk-report
+          path: ${{ runner.temp }}/workflow-audit.json
+          if-no-files-found: error
+          retention-days: 7
