@@ -111,6 +111,42 @@ def load_policy(path: Path) -> Policy:
     )
 
 
+
+def strengthen_policy(baseline: Policy, overlay: Policy) -> Policy:
+    """Compose policy monotonically: overlay cannot weaken baseline.
+
+    Empty prefixes mean 'all files'. Additional required checks are included;
+    minimum files grow; time/size ceilings shrink; skip exemptions may only
+    become stricter. Different scopes are rejected rather than guessed.
+    """
+    if baseline.scope != overlay.scope:
+        raise ConfigurationError('Overlay policy cannot change baseline scope')
+    required = tuple(name for name in DEFAULT_CHECKS
+                     if name in set(baseline.required_checks) |
+                     set(overlay.required_checks))
+    skip = frozenset(baseline.allow_skipped_checks &
+                     overlay.allow_skipped_checks)
+    if not baseline.include_prefixes or not overlay.include_prefixes:
+        prefixes: tuple[str, ...] = ()
+    else:
+        prefixes = tuple(sorted(
+            set(baseline.include_prefixes) |
+            set(overlay.include_prefixes)
+        ))
+    return Policy(
+        scope=baseline.scope, required_checks=required,
+        allow_skipped_checks=skip,
+        min_files=max(baseline.min_files, overlay.min_files),
+        include_prefixes=prefixes,
+        timeout_seconds=min(baseline.timeout_seconds, overlay.timeout_seconds),
+        max_file_bytes=min(baseline.max_file_bytes, overlay.max_file_bytes),
+        sha256=hashlib.sha256(canonical({
+            'baseline_policy_sha256': baseline.sha256,
+            'overlay_policy_sha256': overlay.sha256,
+            'combination': 'monotonic-v1',
+        })).hexdigest(),
+    )
+
 def evaluate(report: dict[str, Any], policy: Policy,
              expected_head: str | None = None) -> tuple[str, ...]:
     """Return sorted failure codes, never a trusted/non-trusted assertion."""
