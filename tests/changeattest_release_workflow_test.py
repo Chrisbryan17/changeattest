@@ -31,9 +31,9 @@ def test_release_workflow_uses_tag_only_oidc_attestation():
                for step in build['steps'])
 
     actions = [step.get('uses') for step in signer['steps']]
-    assert 'actions/attest@v4' in actions
+    assert 'actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6' in actions
     attest = next(step for step in signer['steps']
-                  if step.get('uses') == 'actions/attest@v4')
+                  if step.get('uses') == 'actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6')
     assert attest['with']['subject-path'] == 'dist/*'
     assert any('gh attestation verify' in step.get('run', '')
                for step in signer['steps'])
