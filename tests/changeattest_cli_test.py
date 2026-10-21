@@ -199,3 +199,21 @@ def test_unicode_and_spaced_file_names(sample_repo, tmp_path):
     code, report = run_report(sample_repo, tmp_path / 'report.json')
     assert code == 0
     assert report['files'][0]['path'] == name
+
+
+def test_repository_cannot_shadow_trusted_python_check_module(sample_repo, tmp_path):
+    # A repository being checked may contain a package with the same name as
+    # our installed validators. Never run it merely by changing cwd there.
+    fake = sample_repo / 'pre_commit_hooks'
+    fake.mkdir()
+    (fake / '__init__.py').write_text('')
+    (fake / 'check_json.py').write_text(
+        "from pathlib import Path\\n"
+        "Path('EXECUTED_UNTRUSTED_CODE').write_text('pwned')\\n"
+    )
+    (sample_repo / 'safe.json').write_text('{"trusted":true}\\n')
+    git(sample_repo, 'add', 'safe.json')
+    code, report = run_report(sample_repo, tmp_path / 'report.json')
+    assert code == 0
+    assert next(x for x in report['checks'] if x['id'] == 'json')['status'] == 'passed'
+    assert not (sample_repo / 'EXECUTED_UNTRUSTED_CODE').exists()
