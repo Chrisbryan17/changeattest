@@ -135,7 +135,7 @@ def _run_check(
     output = b''
     try:
         result = subprocess.run(
-            (sys.executable, '-m', check.module, *check.args, *files),
+            (sys.executable, '-I', '-m', check.module, *check.args, *files),
             cwd=root, capture_output=True, timeout=timeout, check=False,
         )
         output = result.stdout + b'\0' + result.stderr
