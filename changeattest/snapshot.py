@@ -62,7 +62,9 @@ def scan_commit(root: Path, config: dict[str, Any]) -> dict[str, Any]:
     entries.sort(key=lambda a: a[0])
 
     with tempfile.TemporaryDirectory(prefix='changeattest-snapshot-') as tmp:
-        snap = Path(tmp)
+        # Resolve the Windows temp directory itself before containment tests;
+        # Windows short/long path normalization can differ from lexical tmp.
+        snap = Path(tmp).resolve()
         allowed: list[str] = []
         for name, mode, oid in entries:
             parts = Path(name).parts
