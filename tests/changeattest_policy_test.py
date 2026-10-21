@@ -54,7 +54,7 @@ def gate(root, policy, destination, *more):
 def test_policy_gate_runs_required_checks(root, policy_file, tmp_path):
     dest = tmp_path / 'evidence.json'
     code, report = gate(root, policy_file, dest)
-    assert code == 0
+    assert code == 0, report['problems']
     assert report['status'] == 'passed'
     assert report['include_prefixes'] == ['src/']
     assert report['file_count'] == 1
