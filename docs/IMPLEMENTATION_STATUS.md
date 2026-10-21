@@ -1,39 +1,71 @@
-# ChangeAttest platform implementation ledger
+# ChangeAttest implementation ledger
 
-As of the merged platform-expansion and CI integration PRs #6 and #7 on 2026-10-21.
-**Linux and Windows CI passed for these changes. The full original product
-roadmap is NOT yet complete.**
+Last reviewed: 2026-10-21, after merged PRs #1–#12.
+GitHub repository: https://github.com/Chrisbryan17/changeattest
 
-| Milestone | Concrete implemented scope | Not yet provided |
+**Pre-release. Working software, not a finished universal trust platform.**
+The current CLI, build, GitHub CI policy gate and expanded modules passed
+Python 3.11/3.13 tests on Linux and Windows. Tag signing and unrestricted
+third-party-code isolation have different verification requirements.
+
+| Workstream | Implemented on `main` | Still open |
 | --- | --- | --- |
-| 4. Verification security | Immutable Git-commit blobs for the trusted tracked gate; fail-closed symlinks and size limits; mandatory GitHub status rule | Restricted approver governance, cryptographic CI identity, full policy protection |
-| 5. Universal execution | Seven built-in validators; opt-in parallel tool adapters for Ruff, Biome, ESLint, tsc, go vet, cargo fmt, pytest | Adapter isolation, incremental test mapping, persistent content cache, custom trusted plugin SDK |
-| 6. Evidence | SHA-256 JSON evidence, optional Ed25519 envelopes, JUnit result receipts | Sigstore/in-toto interoperability, secure signing service, attestations tied to external build artifacts |
-| 7. AI agents | Diff scope contracts with forbidden paths and signed test receipt requirement | Agent authentication, bounded remediation agent, model provider plugins, code comprehension |
-| 8. Developer experience | CLI, HTML/SARIF/JUnit exports, local evidence viewer | IDE plugins, TUI, per-line diagnostics without secret leakage |
-| 9. CI ecosystem | Protected-baseline GitHub CI gate, reusable composite Action, GitHub agent-scope workflow | GitLab/Bitbucket, merge queues, third-party cross-org demos |
-| 10. Governance | Explicit policy, monotonic organization-policy overlays, branch status ruleset | Organization policy registry, multi-tenant authorization, managed exception workflow |
-| 11. Hosting | Local SQLite vault and loopback-only read-only HTTP dashboard | Hosted SaaS, secure tenancy, SSO, authenticated APIs, billing, production deployments |
-| 12. OSS maturity | MIT attribution, CONTRIBUTING, SECURITY, CODEOWNERS, verified wheel/sdist packaging | Published immutable release, independent GitHub fork detachment, adoption proof |
-| 13. Validation | Python 3.11/3.13 Windows and Linux matrix; optional check adapters | Benchmark against incumbents, Aether/Handwired/Revenue OS verified integrations |
+| Source integrity | Immutable Git HEAD tree validation, SHA-256 file hashes, path/symlink/size rejection, **bounded Git batch object reads** (#10) | Merkle evidence across generated artifacts and external dependencies, quantified large-scale performance benchmarks |
+| Local and CI quality | Legacy MIT hook catalogue, standalone `changeattest` CLI, explicit policy requirements, strict Git commit matching, required GitHub status gate | Expand protected policy coverage and workflow tamper governance, protected human reviews |
+| Parallel tool execution | Ruff, Biome, ESLint, TypeScript, Go, Cargo, pytest adapters | Build/test impact graphs, general plugin SDK, memory-safe scalable scheduling |
+| Restricted third-party tools | **Opt-in Docker backend** (#9), digest-pinned images, read-only workspace, disabled network, dropped capabilities, non-root process and resource limits | Container runtime integration tests on real supported hosts, hardened VM/microVM isolation, independent security assessment |
+| Execution performance | Batched Git-object reads (#10), bounded parallel adapters, **opt-in advisory Ruff result cache** (#11) | Cross-tool incremental scheduling and cache invalidation proofs, persistent distributed cache, benchmarked speedup |
+| Evidence | Deterministic unsigned JSON, Ed25519 verification with trusted keys, JUnit test receipts, HTML/SARIF/JUnit exports | Independently authenticated CI runner, signed executed-test provenance, Sigstore/in-toto integration with policy evidence |
+| Release provenance | **Tag-only GitHub OIDC/Sigstore artifact attestation workflow** (#12), version/tag consistency validation and `gh attestation verify` step | Run a reviewed version tag and validate generated attestations; immutable GitHub release setting; trusted publication workflow |
+| AI-agent control | Git diff scope contracts, denied paths, signed evidence option, advisory GitHub agent scope workflow | Agent identity/authentication, isolated remediation loop, IDE/agent framework integration, risk analysis |
+| CI and repository rules | Reviewed default-branch source for policy/evaluator, read-only CI runner, required `verified-policy-gate`, CI matrix, wheel/sdist smoke verification | Rules requiring security reviews for workflow/policy edits; GitLab/Bitbucket integrations and self-hosted hardened runners |
+| Local reporting | SQLite history, read-only localhost evidence viewer, machine-readable reports | Authenticated multi-user API, team dashboard, retained audit policy, hosted storage |
+| Organization policy | Strict TOML policies, monotonic policy overlays | Central authorization, approval queues, exception expiry, SSO/OIDC account service |
+| OSS and commercial | MIT attribution, README, SECURITY.md, CONTRIBUTING.md, CODEOWNERS, reproducible source code and regression suites | Stable version, published package/release, comprehensive docs site, pricing and SaaS deployment |
+| External validation | Cross-platform CI, static security regressions, package-build smoke tests | Demonstrations on Aether, Handwired, Revenue OS; actual attack simulations and independent security review |
 
-## Critical trust distinctions
+## Verified test checkpoint
 
-- An Ed25519 signature proves that someone held the private key, not that
-  a test actually executed.
-- A trusted Git commit scanner verifies the HEAD tree bytes at scan time,
-  but does not verify every dependency, generated artifact or runtime.
-- Optional external test tools may execute project-local code; they are
-  not a sandboxed or hard-isolated validator.
-- The local dashboard provides no remote authentication or hosted SLA.
-- GitHub required-status protection is active, but the project's current
-  governance does not guarantee mandatory external human approval for
-  workflow and policy modifications.
+PR #12 ran **531 tests passed** per Linux Python version and **514 tests
+passed, 15 skipped, 2 expected failures** per Windows Python version.
+The independent gate, agent scope check and package smoke also succeeded.
+The post-merge default-branch matrix should be reviewed separately on GitHub
+before treating the latest commit as verified.
 
-## Product completion criteria
+## Trust boundaries that must remain explicit
 
-A broad 'complete' claim requires external trust anchoring, authenticated
-test execution, secure plugin isolation, immutable release packages,
-managed organization policies, integrated IDE/CI support, production
-backend controls, security review and deployment case studies. These are
-not all in the present branch.
+1. `gate` reads Git objects and independently runs allowlisted checks.
+   It must never accept advisory cache hits as a substitute for execution.
+2. `tools --docker-image` is an **opt-in restricted container**, not proof
+   of perfect malicious-code isolation. Actual Docker/host isolation has not
+   been penetration tested on each platform.
+3. `tools --cache-dir` reuses Ruff successes only for a clean checkout and
+   digest-pinned image, clearly labeled `cached-passed` and advisory. It
+   is outside required policy verification.
+4. An Ed25519 signature authenticates key possession, not test execution.
+5. A GitHub tag attestation workflow now exists, but **no tag-triggered
+   attestation run is claimed completed** without real signed artifacts.
+6. A required GitHub check is active, but changes to the check workflow
+   and sensitive policy files still need enforced independent review; see
+   [ADR 0001](ADR-0001-TRUSTED-CI.md).
+7. GitHub release immutability is a distinct administrative setting and
+   remains unverified/not enabled by this repository's source code.
+8. Hosting, enterprise governance and comprehensive coverage remain
+   future work. There is no production SaaS or secure multitenant service.
+
+## Near-term implementation priorities
+
+- Harden protected workflow/policy governance through GitHub rules and
+  independent review; test simulated workflow-bypass attempts.
+- Verify Docker restrictions against actual Linux and Windows Docker
+  engines and pin reviewed third-party tool images.
+- Build deterministic source-to-test dependency graphs and measure incremental
+  execution savings against full execution.
+- Validate a tagged test release's GitHub-generated Sigstore provenance and
+  implement a release publication process with immutable releases.
+- Run ChangeAttest on real repositories and publish measured comparisons.
+- Only after these controls: expand enterprise identity, central policy,
+  protected remote execution and hosted evidence services.
+
+New milestones must include regression tests and execution evidence; do not
+mark a workstream complete merely because a module or workflow exists.
