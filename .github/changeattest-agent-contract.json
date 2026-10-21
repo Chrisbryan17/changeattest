@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "allowed_paths": ["*"],
+  "forbidden_paths": [".github/changeattest-policy.toml", "LICENSE"],
+  "required_checks": [],
+  "max_changed_files": 250
+}
