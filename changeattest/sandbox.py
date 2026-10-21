@@ -55,6 +55,10 @@ def build_argv(
     root = root.resolve(strict=True)
     if not root.is_dir():
         raise ValueError('Repository root must be a directory')
+    # Docker --mount uses comma-separated fields. Never interpolate a root
+    # containing delimiters that could inject new mount or security options.
+    if any(ch in str(root) for ch in (',', '\\n', '\\r', '\\x00')):
+        raise ValueError('Unsafe character in repository mount path')
 
     for name in selected:
         if name == '.' and adapter.project_files:
