@@ -233,8 +233,11 @@ def test_gate_scans_committed_bytes_not_mutable_worktree(root, policy_file, tmp_
     code, report = gate(root, policy_file, tmp_path / 'report.json')
     assert code == 0
     assert report['status'] == 'passed'
+    committed = subprocess.check_output(
+        ('git', 'show', 'HEAD:src/ok.py'), cwd=root,
+    )
     assert report['files'][0]['sha256'] == hashlib.sha256(
-        b'answer = 42\\n',
+        committed,
     ).hexdigest()
 
 
