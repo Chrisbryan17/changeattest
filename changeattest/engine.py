@@ -30,6 +30,7 @@ class Check:
 # Only explicitly vetted, non-mutating modules. Project config cannot supply
 # arbitrary executable names, Python imports, shell snippets or arguments.
 CHECKS: tuple[Check, ...] = (
+    Check('python-ast', 'pre_commit_hooks.check_ast', ('.py',)),
     Check('json', 'pre_commit_hooks.check_json', ('.json',)),
     Check('toml', 'pre_commit_hooks.check_toml', ('.toml',)),
     Check('yaml', 'pre_commit_hooks.check_yaml', ('.yaml', '.yml')),
@@ -176,6 +177,21 @@ def scan(root: Path, scope: str, config: dict[str, Any]) -> dict[str, Any]:
     else:
         raise ConfigurationError('Invalid scan scope')
 
+    # Prefixes can only be supplied through the explicit gate policy, not a
+    # target repository's .changeattest.toml configuration.
+    include = tuple(config.get('include_prefixes', ()))
+    if include:
+        paths = [
+            path for path in paths
+            if any(path == prefix or path.startswith(prefix)
+                   for prefix in include)
+        ]
+        mismatch = [
+            path for path in mismatch
+            if any(path == prefix or path.startswith(prefix)
+                   for prefix in include)
+        ]
+
     head = None
     try:
         head = _git(real_root, 'rev-parse', '--verify', 'HEAD').decode('ascii').strip()
@@ -242,6 +258,7 @@ def scan(root: Path, scope: str, config: dict[str, Any]) -> dict[str, Any]:
         'problems': problems,
         'checks': results,
         'status': overall,
+        'include_prefixes': list(include),
     }
     report['report_sha256'] = hashlib.sha256(canonical(report)).hexdigest()
     return report
