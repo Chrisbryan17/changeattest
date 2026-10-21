@@ -92,7 +92,8 @@ def _run(adapter: Adapter, root: Path, selected: list[str],
 
 def run_adapters(root: Path, selected_ids: list[str], files: list[str],
                  timeout: int = 120, jobs: int = 4,
-                 sandbox_image: str | None = None) -> dict[str, Any]:
+                 sandbox_image: str | None = None,
+                 cache_dir: Path | None = None) -> dict[str, Any]:
     if (
         any(x not in ADAPTER_INDEX for x in selected_ids) or
         len(selected_ids) != len(set(selected_ids)) or
@@ -102,15 +103,28 @@ def run_adapters(root: Path, selected_ids: list[str], files: list[str],
     root = root.resolve()
     tasks = [(ADAPTER_INDEX[x], _select(ADAPTER_INDEX[x], root, files))
              for x in sorted(selected_ids)]
+    if cache_dir is not None and sandbox_image is None:
+        raise ValueError('Advisory cache requires --docker-image')
     if sandbox_image is not None:
-        # Lazy import avoids an import cycle: sandbox shares Adapter registry
-        # descriptors but never imports the application runner.
+        # Lazy imports avoid a registry/sandbox/cache import cycle.
         from changeattest.sandbox import DockerSandbox
         from changeattest.sandbox import run_in_docker
         sandbox = DockerSandbox(sandbox_image)
-        runner = lambda task: run_in_docker(
-            task[0], task[1], root, timeout, sandbox,
-        )
+        advisory = None
+        if cache_dir is not None:
+            from changeattest.cache import AdvisoryCache
+            advisory = AdvisoryCache(Path(cache_dir), root, sandbox.image)
+
+        def runner(task):
+            adapter, selected = task
+            if advisory is not None:
+                cached = advisory.get(adapter, selected)
+                if cached is not None:
+                    return cached
+            result = run_in_docker(adapter, selected, root, timeout, sandbox)
+            if advisory is not None:
+                advisory.put(adapter, selected, result)
+            return result
     else:
         runner = lambda task: _run(task[0], root, task[1], timeout)
     with concurrent.futures.ThreadPoolExecutor(max_workers=jobs) as pool:
@@ -118,13 +132,16 @@ def run_adapters(root: Path, selected_ids: list[str], files: list[str],
     states = {r['status'] for r in results}
     status = ('error' if 'error' in states or 'unavailable' in states else
               'failed' if 'failed' in states else
-              'no-files' if not any(r['file_count'] for r in results) else 'passed')
+              'no-files' if not any(r['file_count'] for r in results) else
+              'passed-with-cache' if 'cached-passed' in states else 'passed')
     report: dict[str, Any] = {
         'schema': 'changeattest.tools.v1', 'status': status,
         'results': results, 'selected_tools': sorted(selected_ids),
         'root_git_head': None,
         'execution_mode': 'docker-restricted' if sandbox_image else 'local-unrestricted',
         'sandbox_image': sandbox_image,
+        'advisory_cache': cache_dir is not None,
+        'cached_check_count': sum(r['status'] == 'cached-passed' for r in results),
     }
     try:
         commit = subprocess.run(('git', 'rev-parse', 'HEAD'), cwd=root,
