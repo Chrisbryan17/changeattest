@@ -40,6 +40,47 @@ ChangeAttest's `.pre-commit-hooks.yaml` manifest remains compatible with the sep
 
 For the full inherited hook catalogue, see [Original hook catalogue](docs/ORIGINAL_HOOKS.md).
 
+## Available hook identifiers
+
+The following IDs are provided by this repository. Their current behavior and options are documented in the [inherited hook catalogue](docs/ORIGINAL_HOOKS.md) and in the hook manifest. Some legacy aliases intentionally report that a hook has been removed.
+
+- `check-added-large-files`
+- `check-ast`
+- `check-byte-order-marker`
+- `check-builtin-literals`
+- `check-case-conflict`
+- `check-docstring-first`
+- `check-executables-have-shebangs`
+- `check-illegal-windows-names`
+- `check-json`
+- `check-shebang-scripts-are-executable`
+- `pretty-format-json`
+- `check-lfs-attributes`
+- `check-merge-conflict`
+- `check-symlinks`
+- `check-toml`
+- `check-vcs-permalinks`
+- `check-xml`
+- `check-yaml`
+- `debug-statements`
+- `detect-openpgp-secret-key`
+- `destroyed-symlinks`
+- `detect-aws-credentials`
+- `detect-private-key`
+- `double-quote-string-fixer`
+- `end-of-file-fixer`
+- `file-contents-sorter`
+- `fix-byte-order-marker`
+- `fix-encoding-pragma`
+- `forbid-new-submodules`
+- `forbid-submodules`
+- `mixed-line-ending`
+- `name-tests-test`
+- `no-commit-to-branch`
+- `requirements-txt-fixer`
+- `sort-simple-yaml`
+- `trailing-whitespace`
+
 ## Continuous integration
 
 The [in-repository CI workflow](.github/workflows/main.yml) runs the regression tests across supported Python versions on Linux and Windows. Test results are reported by GitHub Actions; no green status is claimed until the workflow actually completes.
