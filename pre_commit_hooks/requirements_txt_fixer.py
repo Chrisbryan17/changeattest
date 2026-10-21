@@ -30,6 +30,15 @@ class Requirement:
         assert m is not None
 
         name = m.group()
+        # Treat option values as part of their directive, not its sort name.
+        if name in (b'-i', b'--index-url') or name.startswith(
+                (b'-i=', b'--index-url='),
+        ):
+            return b'--index-url'
+        elif name == b'--extra-index-url' or name.startswith(
+                b'--extra-index-url=',
+        ):
+            return b'--extra-index-url'
         m = self.UNTIL_COMPARISON.search(name)
         if not m:
             return name
@@ -50,7 +59,12 @@ class Requirement:
             # with comments is kept)
             if self.name == requirement.name:
                 return bool(self.comments) > bool(requirement.comments)
-            return self.name < requirement.name
+            # Pip's primary index must precede additional indexes; sorting
+            # these options alphabetically can silently change pip behavior.
+            def key(name: bytes) -> tuple[int, bytes]:
+                precedence = {b'--index-url': 0, b'--extra-index-url': 1}
+                return precedence.get(name, 2), name
+            return key(self.name) < key(requirement.name)
 
     def is_complete(self) -> bool:
         return (
