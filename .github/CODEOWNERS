@@ -1,0 +1,9 @@
+# The owner should explicitly review sensitive enforcement changes.
+/.github/workflows/ @Chrisbryan17
+/.github/changeattest-policy.toml @Chrisbryan17
+/.github/actions/ @Chrisbryan17
+/changeattest/policy.py @Chrisbryan17
+/changeattest/snapshot.py @Chrisbryan17
+/changeattest/attestation.py @Chrisbryan17
+/setup.cfg @Chrisbryan17
+/SECURITY.md @Chrisbryan17
