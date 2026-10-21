@@ -19,6 +19,9 @@ from changeattest.engine import ConfigurationError
 from changeattest.engine import SCHEMA
 from changeattest.engine import _run_check
 from changeattest.engine import canonical
+from changeattest.git_batch import GitObjectError
+from changeattest.git_batch import blob_contents
+from changeattest.git_batch import blob_sizes
 
 _OBJECT = re.compile(rb'[0-9a-f]{40}(?:[0-9a-f]{24})?\Z')
 
@@ -61,11 +64,11 @@ def scan_commit(root: Path, config: dict[str, Any]) -> dict[str, Any]:
         entries.append((path, mode.decode('ascii'), oid.decode('ascii')))
     entries.sort(key=lambda a: a[0])
 
+    # Reject unsafe paths and non-regular Git entries before invoking the
+    # blob batch reader. A repeated blob OID is read once, then reused.
+    candidates: list[tuple[str, str]] = []
     with tempfile.TemporaryDirectory(prefix='changeattest-snapshot-') as tmp:
-        # Resolve the Windows temp directory itself before containment tests;
-        # Windows short/long path normalization can differ from lexical tmp.
         snap = Path(tmp).resolve()
-        allowed: list[str] = []
         for name, mode, oid in entries:
             parts = Path(name).parts
             if (
@@ -74,22 +77,33 @@ def scan_commit(root: Path, config: dict[str, Any]) -> dict[str, Any]:
                 not (snap / name).resolve().is_relative_to(snap)
             ):
                 problems.append({'path': name, 'reason': 'unsafe-git-path'})
-                continue
-            if mode not in ('100644', '100755'):
+            elif mode not in ('100644', '100755'):
                 problems.append({'path': name, 'reason': 'unsupported-git-object-type'})
-                continue
-            size = int(_git(root, 'cat-file', '-s', oid))
-            if size > config['max_file_bytes']:
+            else:
+                candidates.append((name, oid))
+
+        try:
+            sizes = blob_sizes(root, [oid for _, oid in candidates])
+            selected = [(name, oid) for name, oid in candidates
+                        if sizes[oid] <= config['max_file_bytes']]
+            data = blob_contents(root, [oid for _, oid in selected], sizes)
+        except (GitObjectError, KeyError) as exc:
+            raise ConfigurationError('Git snapshot batch verification failed') from exc
+
+        for name, oid in candidates:
+            if sizes[oid] > config['max_file_bytes']:
                 problems.append({'path': name, 'reason': 'file-size-limit'})
-                continue
-            data = _git(root, 'cat-file', 'blob', oid)
-            if len(data) != size:
-                raise ConfigurationError('Git object size changed')
+
+        allowed: list[str] = []
+        for name, oid in selected:
+            payload = data[oid]
             out = snap / name
             out.parent.mkdir(parents=True, exist_ok=True)
-            out.write_bytes(data)
+            out.write_bytes(payload)
             allowed.append(name)
-            files.append({'path': name, 'sha256': hashlib.sha256(data).hexdigest()})
+            files.append({
+                'path': name, 'sha256': hashlib.sha256(payload).hexdigest(),
+            })
 
         # Some legacy file checkers query Git metadata even when checking only
         # ordinary file content; an empty ephemeral repository satisfies them.
