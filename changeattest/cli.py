@@ -78,6 +78,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     gate.add_argument('--overlay-policy', help='Optional, strictly tightening policy')
     gate.add_argument('--report', required=True)
     gate.add_argument('--expected-head')
+    gate.add_argument('--revision', help='Full immutable Git SHA to verify instead of HEAD')
 
     tools = sub.add_parser('tools', help='Run optional cross-language tools (untrusted code risk)')
     tools.add_argument('--root', default='.')
@@ -255,8 +256,18 @@ def main(argv: Sequence[str] | None = None) -> int:
                 policy = strengthen_policy(
                     policy, load_policy(Path(args.overlay_policy)),
                 )
-            result = (scan_commit(root, policy.runner_config())
-                      if policy.scope == 'tracked' else
+            if args.revision and not args.expected_head:
+                raise ConfigurationError(
+                    '--revision requires --expected-head to independently '
+                    'bind the intended commit',
+                )
+            if args.revision and policy.scope != 'tracked':
+                raise ConfigurationError(
+                    '--revision requires a tracked immutable policy scope',
+                )
+            result = (scan_commit(
+                root, policy.runner_config(), revision=args.revision,
+            ) if policy.scope == 'tracked' else
                       scan(root, policy.scope, policy.runner_config()))
             violations = evaluate(result, policy, args.expected_head)
             _write_report(args.report, canonical(result))
