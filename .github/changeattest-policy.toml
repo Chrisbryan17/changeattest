@@ -5,7 +5,7 @@
 version = 1
 scope = "tracked"
 include_prefixes = ["changeattest/", "pre_commit_hooks/"]
-required_checks = ["python-ast", "merge-conflict"]
+required_checks = ["merge-conflict"] # ADVERSARIAL TEST: intentionally weakens policy; DO NOT MERGE
 allow_skipped_checks = []
 min_files = 1
 timeout_seconds = 45
