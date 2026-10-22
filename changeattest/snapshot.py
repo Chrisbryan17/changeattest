@@ -39,11 +39,29 @@ def _git(root: Path, *args: str, input_bytes: bytes | None = None) -> bytes:
     return done.stdout
 
 
-def scan_commit(root: Path, config: dict[str, Any]) -> dict[str, Any]:
-    """Scan exact Git HEAD tree bytes, with no live working-tree reads."""
+def scan_commit(
+    root: Path, config: dict[str, Any], revision: str | None = None,
+) -> dict[str, Any]:
+    """Verify an exact Git commit object without checking out its files.
+
+    Revision is restricted to a complete 40/64-character object identifier;
+    symbolic names, ref syntax and untrusted shell fragments are disallowed.
+    The verified commit need not be the active worktree HEAD.
+    """
     root = root.resolve()
-    commit = _git(root, 'rev-parse', '--verify', 'HEAD^{commit}').decode('ascii').strip()
-    tree = _git(root, 'ls-tree', '-rz', '--full-tree', 'HEAD')
+    if revision is not None:
+        if not isinstance(revision, str) or not _OBJECT.fullmatch(
+            revision.encode('ascii', errors='replace'),
+        ):
+            raise ConfigurationError('Target revision must be a full Git object SHA')
+        candidate = revision
+    else:
+        candidate = 'HEAD'
+    commit = _git(root, 'rev-parse', '--verify',
+                  f'{candidate}^{{commit}}').decode('ascii').strip()
+    if revision is not None and commit != revision:
+        raise ConfigurationError('Target commit identity does not match requested revision')
+    tree = _git(root, 'ls-tree', '-rz', '--full-tree', commit)
     prefix = tuple(config.get('include_prefixes', ()))
     files: list[dict[str, str]] = []
     problems: list[dict[str, str]] = []
