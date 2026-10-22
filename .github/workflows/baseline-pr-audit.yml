@@ -1,0 +1,74 @@
+name: ChangeAttest Base-Owned PR Verification
+
+# Runs the workflow definition from the default branch, NOT from a PR.
+# This is an advisory experiment. It is not yet a required status check.
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  baseline:
+    name: base-owned-source-verification-advisory
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Check out only the reviewed base commit
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Prepare isolated trusted Python interpreter
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.13'
+
+      - name: Validate trusted base and fetch untrusted commit as Git objects only
+        shell: bash
+        env:
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          [[ "$PR_HEAD" =~ ^[0-9a-f]{40}([0-9a-f]{24})?$ ]] || exit 2
+          [[ "$BASE_SHA" =~ ^[0-9a-f]{40}([0-9a-f]{24})?$ ]] || exit 2
+          [[ "$PR_NUMBER" =~ ^[0-9]{1,12}$ ]] || exit 2
+          test "$(git rev-parse HEAD)" = "$BASE_SHA"
+          # Fetch Git objects ONLY. Do not checkout, build or run PR contents.
+          git fetch --no-tags --depth=1 origin "refs/pull/${PR_NUMBER}/head"
+          test "$(git rev-parse FETCH_HEAD^{commit})" = "$PR_HEAD"
+          git show "$BASE_SHA:.github/changeattest-policy.toml" > "$RUNNER_TEMP/baseline-policy.toml"
+          printf 'TRUSTED_BASE_SHA=%s\n' "$BASE_SHA" >> "$GITHUB_ENV"
+          printf 'TARGET_PR_SHA=%s\n' "$PR_HEAD" >> "$GITHUB_ENV"
+
+      - name: Install evaluator from reviewed base commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --no-cache-dir \
+            "git+https://github.com/Chrisbryan17/changeattest.git@$TRUSTED_BASE_SHA"
+
+      - name: Verify source objects without executing PR checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -I -m changeattest gate \
+            --root "$GITHUB_WORKSPACE" \
+            --revision "$TARGET_PR_SHA" \
+            --expected-head "$TARGET_PR_SHA" \
+            --policy "$RUNNER_TEMP/baseline-policy.toml" \
+            --report "$RUNNER_TEMP/trusted-pr-evidence.json"
+
+      - name: Archive advisory result
+        if: always()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: baseline-owned-pr-evidence
+          path: ${{ runner.temp }}/trusted-pr-evidence.json
+          if-no-files-found: warn
+          retention-days: 7
