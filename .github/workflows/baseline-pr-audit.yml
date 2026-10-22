@@ -53,6 +53,17 @@ jobs:
           python -m pip install --no-cache-dir \
             "git+https://github.com/Chrisbryan17/changeattest.git@$TRUSTED_BASE_SHA"
 
+      - name: Deny unreviewed critical workflow or policy changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -I -m changeattest sensitive-change \
+            --root "$GITHUB_WORKSPACE" \
+            --base "$TRUSTED_BASE_SHA" \
+            --head "$TARGET_PR_SHA" \
+            --block-critical \
+            --report "$RUNNER_TEMP/sensitive-review.json"
+
       - name: Verify source objects without executing PR checkout
         shell: bash
         run: |
@@ -69,6 +80,8 @@ jobs:
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: baseline-owned-pr-evidence
-          path: ${{ runner.temp }}/trusted-pr-evidence.json
+          path: |
+            ${{ runner.temp }}/trusted-pr-evidence.json
+            ${{ runner.temp }}/sensitive-review.json
           if-no-files-found: warn
           retention-days: 7

@@ -155,7 +155,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     sensitive.add_argument('--head', required=True)
     sensitive.add_argument('--report', required=True)
     sensitive.add_argument('--block-sensitive', action='store_true',
-                           help='Nonzero exit when review of sensitive files is necessary')
+                           help='Nonzero exit when any sensitive file changes')
+    sensitive.add_argument('--block-critical', action='store_true',
+                           help='Nonzero exit only for CI/policy critical changes')
 
     args = parser.parse_args(argv)
 
@@ -203,7 +205,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                   f"{result['counts']['high']} high paths")
             for item in result['findings']:
                 print(f"  {item['severity']}: {item['path']} ({item['reason']})")
-            return 1 if args.block_sensitive and result['findings'] else 0
+            return 1 if (
+                (args.block_sensitive and result['findings']) or
+                (args.block_critical and result['counts']['critical'] > 0)
+            ) else 0
 
         if args.action == 'workflow-audit':
             result = audit_commit(root)

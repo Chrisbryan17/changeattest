@@ -15,8 +15,10 @@ The default is advisory: a machine-readable report lists changed paths,
 their reasons and the number of critical/high review items.
 
 For a verifier installed and executed from a **trusted independent
-baseline**, append `--block-sensitive` to return nonzero when
-security-sensitive files were changed.
+baseline**, append `--block-sensitive` to return nonzero for any
+sensitive file, or `--block-critical` to block only critical
+workflow, action and policy modifications. High-risk source changes
+remain visible in the JSON report even when `--block-critical` passes.
 
 ## Classification
 
@@ -48,7 +50,9 @@ malicious. It indicates that independent maintainer review is required.
 A robust review-exception mechanism and enforcement rules are distinct
 features, not provided by this CLI.
 
-The base-owned PR verifier provides an experimental read-only
-environment but its status-check association and event policy still
-need empirical verification. See
+The base-owned PR verifier passed its first live GitHub PR event.
+The experimental pipeline now uses `--block-critical` from the
+trusted baseline to reject critical workflow/policy changes. This
+status remains advisory until independent GitHub required-check and
+reviewer rules are configured. See
 [base-owned PR verification](BASE_OWNED_PR_VERIFICATION.md).

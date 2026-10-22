@@ -63,6 +63,17 @@ def test_untrusted_code_is_only_fetched_as_git_data():
     assert not any(fragment in all_scripts for fragment in dangerous)
 
 
+def test_base_owned_workflow_blocks_critical_paths_using_trusted_tool():
+    x = _workflow()
+    scripts = '\n'.join(s.get('run', '')
+                        for s in x['jobs']['baseline']['steps'])
+    assert 'changeattest sensitive-change' in scripts
+    assert '--block-critical' in scripts
+    assert '--base "$TRUSTED_BASE_SHA"' in scripts
+    assert '--head "$TARGET_PR_SHA"' in scripts
+    assert '--report "$RUNNER_TEMP/sensitive-review.json"' in scripts
+
+
 def test_untrusted_sha_flows_through_env_not_yaml_shell_expression():
     x = _workflow()
     scripts = '\n'.join(s.get('run', '') for s
