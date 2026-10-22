@@ -153,3 +153,29 @@ def test_default_cli_is_advisory(root, tmp_path):
     assert main(('sensitive-change', '--root', str(root), '--base', base,
                  '--head', head, '--report', str(output))) == 0
     assert json.loads(output.read_text())['status'] == 'review-required'
+
+
+def test_critical_only_blocking_allows_ordinary_verifier_source_review(root, tmp_path):
+    base = git(root, 'rev-parse', 'HEAD')
+    (root / 'changeattest').mkdir()
+    (root / 'changeattest/snapshot.py').write_text('safe = True\n')
+    head = commit(root, 'engine implementation')
+    output = tmp_path / 'review.json'
+    assert main(('sensitive-change', '--root', str(root),
+                 '--base', base, '--head', head,
+                 '--report', str(output), '--block-critical')) == 0
+    report = json.loads(output.read_text())
+    assert report['counts'] == {'critical': 0, 'high': 1}
+    assert report['status'] == 'review-required'
+
+
+def test_critical_only_blocking_rejects_workflow_change(root, tmp_path):
+    base = git(root, 'rev-parse', 'HEAD')
+    (root / '.github/workflows').mkdir(parents=True)
+    (root / '.github/workflows/new-gate.yml').write_text('on: push\n')
+    head = commit(root, 'workflow modification')
+    output = tmp_path / 'review.json'
+    assert main(('sensitive-change', '--root', str(root),
+                 '--base', base, '--head', head,
+                 '--report', str(output), '--block-critical')) == 1
+    assert json.loads(output.read_text())['counts']['critical'] == 1
