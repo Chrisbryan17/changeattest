@@ -1,8 +1,9 @@
 # Base-owned pull request verification experiment
 
-**Status:** Read-only, advisory workflow designed to verify a proposed
-pull request's source objects without running or checking out PR code.
-**Not a replacement for the existing required `verified-policy-gate`.**
+**Status:** A live base-owned read-only workflow successfully verified
+[PR #21](https://github.com/Chrisbryan17/changeattest/pull/21) in
+[GitHub Actions run 39724039357](https://github.com/Chrisbryan17/changeattest/actions/runs/39724039357).
+**It is not currently a required merge check.**
 
 ## Why it exists
 
@@ -32,16 +33,23 @@ for arbitrary testing of fork contributions.
    out or execute contributor files or build scripts.
 5. Load the policy from the trusted base Git blob, and install
    ChangeAttest from that exact reviewed base commit SHA.
-6. Run `gate --revision <PR-head-SHA> --expected-head <same-SHA>`:
+6. Run `sensitive-change --base <trusted-base-SHA> --head <PR-head-SHA>
+   --block-critical`: critical changes to workflows, actions and
+   protected policy trigger an advisory-job failure. High-risk
+   verifier/dependency changes are logged for review without automatically
+   failing this step.
+7. Run `gate --revision <PR-head-SHA> --expected-head <same-SHA>`:
    allowlisted built-in validators read only the untrusted commit's
    blobs through a temporary snapshot. Third-party adapters, dynamic
    plugin loading and PR dependencies are excluded.
-7. Upload unsigned evidence for inspection, with short retention.
+8. Upload unsigned classification and gate evidence, even on failure.
 
-The workflow and its invariants have static regression tests. The
-Linux CI event itself must be exercised after the workflow exists on
-the base branch; passing static tests does **not** prove a successful
-live GitHub `pull_request_target` run.
+The workflow and its invariants have static regression tests.
+In the first live run, trusted source was anchored to
+`60f24fdb712d7b99be8e4dad66b5eac9aeb303f2`, and the requested PR
+commit was `32a53544682da9795d6ac1a8908a888dbe8f37b8`. The job
+reported `ChangeAttest policy gate: PASS`; GitHub attached
+`base-owned-source-verification-advisory` to that proposed commit.
 
 ## Important deployment limitations
 
@@ -53,11 +61,11 @@ live GitHub `pull_request_target` run.
 - As currently designed, the job verifies the proposed **PR head**
   rather than GitHub's synthetic merge commit. Merge correctness
   and the existing merge commit gate still require separate checks.
-- GitHub status-check association differs by event: a
-  `pull_request_target` run is associated with the base branch
-  context, not automatically with the proposed head/merge check that
-  branch protection requires. This workflow is **advisory**, not yet a
-  separately enforceable merge decision.
+- GitHub check association must be verified for each supported
+  event/policy configuration. In the initial experiment GitHub
+  attached the advisory check to the PR head, but it is NOT part of
+  the active required-check ruleset and does not replace validation
+  against the synthetic merge commit.
 - GitHub has announced default restrictions on
   `pull_request_target` events for public repositories beginning
   November 2, 2026. Organization/repository Actions policy must be
@@ -69,11 +77,12 @@ live GitHub `pull_request_target` run.
 
 ## Acceptance criteria before any promotion
 
-Demonstrate that the trusted workflow really runs from the base
-branch for a fresh PR and rejects invalid Python in a disposable
-target revision, while leaving source files unexecuted. Confirm the
-event/check association and repository Actions policy. Obtain
-enforced review and trusted check-source controls through GitHub
+The base-owned workflow ran successfully against real PR #21.
+Remaining: prove the critical-path denial against a disposable PR
+that modifies a protected workflow, and separately test rejection
+of invalid Python in an untrusted target revision. Before promotion
+to required-check status, confirm the future event policy,
+enforced reviewer configuration, and trusted check source in GitHub
 administration (possibly organization-level required workflows).
 
 References:
