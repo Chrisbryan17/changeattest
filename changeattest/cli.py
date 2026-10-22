@@ -34,6 +34,8 @@ from changeattest.impact import ImpactError
 from changeattest.impact import plan_impact
 from changeattest.workflow_audit import WorkflowAuditError
 from changeattest.workflow_audit import audit_commit
+from changeattest.trust_changes import SensitiveChangeError
+from changeattest.trust_changes import classify_commit_change
 
 
 def _write_report(filename: str, payload: bytes) -> None:
@@ -146,6 +148,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     workflows.add_argument('--fail-on-high', action='store_true',
                            help='Fail for critical/high findings (advisory-only by default)')
 
+    sensitive = sub.add_parser(
+        'sensitive-change', help='Classify policy, CI and security-sensitive Git diffs')
+    sensitive.add_argument('--root', default='.')
+    sensitive.add_argument('--base', required=True)
+    sensitive.add_argument('--head', required=True)
+    sensitive.add_argument('--report', required=True)
+    sensitive.add_argument('--block-sensitive', action='store_true',
+                           help='Nonzero exit when review of sensitive files is necessary')
+
     args = parser.parse_args(argv)
 
     try:
@@ -184,6 +195,16 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0 if good else 1
 
         root = _root(args.root)
+        if args.action == 'sensitive-change':
+            result = classify_commit_change(root, args.base, args.head)
+            _write_report(args.report, canonical(result))
+            print(f"Sensitive change review: {result['status']}, "
+                  f"{result['counts']['critical']} critical and "
+                  f"{result['counts']['high']} high paths")
+            for item in result['findings']:
+                print(f"  {item['severity']}: {item['path']} ({item['reason']})")
+            return 1 if args.block_sensitive and result['findings'] else 0
+
         if args.action == 'workflow-audit':
             result = audit_commit(root)
             _write_report(args.report, canonical(result))
@@ -294,6 +315,6 @@ def main(argv: Sequence[str] | None = None) -> int:
             1 if result['status'] == 'failed' else 2
         )
     except (ConfigurationError, OSError, subprocess.TimeoutExpired,
-            ValueError, KeyError, ImpactError) as exc:
+            ValueError, KeyError, ImpactError, SensitiveChangeError) as exc:
         print(f'changeattest: configuration or I/O error: {exc}', file=sys.stderr)
         return 2
