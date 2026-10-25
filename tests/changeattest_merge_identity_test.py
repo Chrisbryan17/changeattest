@@ -72,8 +72,8 @@ def test_swapped_or_stale_parents_are_rejected(merge_repo):
 
 
 def test_non_merge_commit_is_rejected(merge_repo):
-    root, _, base, head, merge = merge_repo
-    report = verify_merge_identity(root, base, head, head)
+    root, first, base, head, merge = merge_repo
+    report = verify_merge_identity(root, base, head, first)
     assert report['status'] == 'rejected'
     assert report['reasons'] == ['merge-parent-count-mismatch']
 
