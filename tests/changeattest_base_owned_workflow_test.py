@@ -74,6 +74,38 @@ def test_base_owned_workflow_blocks_critical_paths_using_trusted_tool():
     assert '--report "$RUNNER_TEMP/sensitive-review.json"' in scripts
 
 
+def test_verified_merge_tree_is_fetched_as_objects_and_never_executed():
+    x = _workflow()
+    steps = x['jobs']['baseline']['steps']
+    scripts = '\n'.join(step.get('run', '') for step in steps)
+    assert 'git fetch --no-tags --depth=1 origin "refs/pull/${PR_NUMBER}/merge"' in scripts
+    assert 'MERGE_SHA="$(git rev-parse FETCH_HEAD^{commit})"' in scripts
+    assert 'TARGET_MERGE_SHA=' in scripts
+    assert 'changeattest verify-merge' in scripts
+    assert '--base "$TRUSTED_BASE_SHA"' in scripts
+    assert '--head "$TARGET_PR_SHA"' in scripts
+    assert '--merge "$TARGET_MERGE_SHA"' in scripts
+    assert '--revision "$TARGET_PR_SHA"' in scripts
+    assert '--revision "$TARGET_MERGE_SHA"' in scripts
+    assert '--expected-head "$TARGET_MERGE_SHA"' in scripts
+    assert '--report "$RUNNER_TEMP/merge-identity.json"' in scripts
+    assert '--report "$RUNNER_TEMP/trusted-merge-evidence.json"' in scripts
+    checkout = next(s for s in steps
+                    if (s.get('uses') or '').startswith('actions/checkout@'))
+    assert checkout['with']['ref'] == '${{ github.event.pull_request.base.sha }}'
+    assert '${{ github.event.pull_request.head.sha }}' not in scripts
+    assert '${{ github.event.pull_request.number }}' not in scripts
+    for forbidden in ('git checkout "$TARGET_MERGE_SHA"',
+                      'git switch "$TARGET_MERGE_SHA"',
+                      'git reset --hard "$TARGET_MERGE_SHA"',
+                      'git merge "$TARGET_PR_SHA"'):
+        assert forbidden not in scripts
+    archives = next(s for s in steps if 'actions/upload-artifact@' in
+                    (s.get('uses') or ''))
+    assert 'trusted-merge-evidence.json' in archives['with']['path']
+    assert 'merge-identity.json' in archives['with']['path']
+
+
 def test_untrusted_sha_flows_through_env_not_yaml_shell_expression():
     x = _workflow()
     scripts = '\n'.join(s.get('run', '') for s
