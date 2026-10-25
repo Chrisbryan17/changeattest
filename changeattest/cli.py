@@ -36,6 +36,8 @@ from changeattest.workflow_audit import WorkflowAuditError
 from changeattest.workflow_audit import audit_commit
 from changeattest.trust_changes import SensitiveChangeError
 from changeattest.trust_changes import classify_commit_change
+from changeattest.merge_identity import MergeIdentityError
+from changeattest.merge_identity import verify_merge_identity
 
 
 def _write_report(filename: str, payload: bytes) -> None:
@@ -159,6 +161,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     sensitive.add_argument('--block-critical', action='store_true',
                            help='Nonzero exit only for CI/policy critical changes')
 
+    merging = sub.add_parser(
+        'verify-merge', help='Check a synthetic Git merge commit has exact base/head parents')
+    merging.add_argument('--root', default='.')
+    merging.add_argument('--base', required=True)
+    merging.add_argument('--head', required=True)
+    merging.add_argument('--merge', required=True)
+    merging.add_argument('--report', required=True)
+
     args = parser.parse_args(argv)
 
     try:
@@ -197,6 +207,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0 if good else 1
 
         root = _root(args.root)
+        if args.action == 'verify-merge':
+            result = verify_merge_identity(root, args.base, args.head, args.merge)
+            _write_report(args.report, canonical(result))
+            print(f"Merge identity: {result['status']}")
+            for reason in result['reasons']:
+                print(f'  {reason}')
+            return 0 if result['status'] == 'verified' else 1
+
         if args.action == 'sensitive-change':
             result = classify_commit_change(root, args.base, args.head)
             _write_report(args.report, canonical(result))
@@ -320,6 +338,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             1 if result['status'] == 'failed' else 2
         )
     except (ConfigurationError, OSError, subprocess.TimeoutExpired,
-            ValueError, KeyError, ImpactError, SensitiveChangeError) as exc:
+            ValueError, KeyError, ImpactError, SensitiveChangeError,
+            MergeIdentityError) as exc:
         print(f'changeattest: configuration or I/O error: {exc}', file=sys.stderr)
         return 2

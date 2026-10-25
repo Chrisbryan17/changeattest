@@ -42,9 +42,15 @@ jobs:
           # Fetch Git objects ONLY. Do not checkout, build or run PR contents.
           git fetch --no-tags --depth=1 origin "refs/pull/${PR_NUMBER}/head"
           test "$(git rev-parse FETCH_HEAD^{commit})" = "$PR_HEAD"
+          # Fetch GitHub's synthetic merge ref into the object database only.
+          # If absent (e.g., merge conflict), do not silently pass the PR.
+          git fetch --no-tags --depth=1 origin "refs/pull/${PR_NUMBER}/merge"
+          MERGE_SHA="$(git rev-parse FETCH_HEAD^{commit})"
+          [[ "$MERGE_SHA" =~ ^[0-9a-f]{40}([0-9a-f]{24})?$ ]] || exit 2
           git show "$BASE_SHA:.github/changeattest-policy.toml" > "$RUNNER_TEMP/baseline-policy.toml"
           printf 'TRUSTED_BASE_SHA=%s\n' "$BASE_SHA" >> "$GITHUB_ENV"
           printf 'TARGET_PR_SHA=%s\n' "$PR_HEAD" >> "$GITHUB_ENV"
+          printf 'TARGET_MERGE_SHA=%s\n' "$MERGE_SHA" >> "$GITHUB_ENV"
 
       - name: Install evaluator from reviewed base commit
         shell: bash
@@ -64,6 +70,17 @@ jobs:
             --block-critical \
             --report "$RUNNER_TEMP/sensitive-review.json"
 
+      - name: Verify synthetic merge parent identities without checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -I -m changeattest verify-merge \
+            --root "$GITHUB_WORKSPACE" \
+            --base "$TRUSTED_BASE_SHA" \
+            --head "$TARGET_PR_SHA" \
+            --merge "$TARGET_MERGE_SHA" \
+            --report "$RUNNER_TEMP/merge-identity.json"
+
       - name: Verify source objects without executing PR checkout
         shell: bash
         run: |
@@ -74,6 +91,13 @@ jobs:
             --expected-head "$TARGET_PR_SHA" \
             --policy "$RUNNER_TEMP/baseline-policy.toml" \
             --report "$RUNNER_TEMP/trusted-pr-evidence.json"
+          # The proposed merge tree, rather than only PR HEAD, must pass.
+          python -I -m changeattest gate \
+            --root "$GITHUB_WORKSPACE" \
+            --revision "$TARGET_MERGE_SHA" \
+            --expected-head "$TARGET_MERGE_SHA" \
+            --policy "$RUNNER_TEMP/baseline-policy.toml" \
+            --report "$RUNNER_TEMP/trusted-merge-evidence.json"
 
       - name: Archive advisory result
         if: always()
@@ -82,6 +106,8 @@ jobs:
           name: baseline-owned-pr-evidence
           path: |
             ${{ runner.temp }}/trusted-pr-evidence.json
+            ${{ runner.temp }}/trusted-merge-evidence.json
+            ${{ runner.temp }}/merge-identity.json
             ${{ runner.temp }}/sensitive-review.json
           if-no-files-found: warn
           retention-days: 7
