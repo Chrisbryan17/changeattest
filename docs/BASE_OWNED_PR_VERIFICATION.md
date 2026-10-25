@@ -38,11 +38,17 @@ for arbitrary testing of fork contributions.
    protected policy trigger an advisory-job failure. High-risk
    verifier/dependency changes are logged for review without automatically
    failing this step.
-7. Run `gate --revision <PR-head-SHA> --expected-head <same-SHA>`:
-   allowlisted built-in validators read only the untrusted commit's
-   blobs through a temporary snapshot. Third-party adapters, dynamic
-   plugin loading and PR dependencies are excluded.
-8. Upload unsigned classification and gate evidence, even on failure.
+7. Fetch GitHub's `refs/pull/<PR-number>/merge` into the Git object
+   database only. Run `verify-merge` to require **exactly two ordered
+   parents**, the event-provided trusted base SHA and PR head SHA.
+   A missing/conflicted merge ref or mismatched parent IDs fails closed.
+8. Run `gate --revision <PR-head-SHA>` and
+   `gate --revision <synthetic-merge-SHA>` with independent matching
+   `--expected-head` values. Both read immutable Git objects in
+   temporary snapshots using trusted built-in validators. No checkout,
+   package installation, build or execution of proposed source occurs.
+9. Upload the sensitive-change report, merge-identity receipt and
+   separate head/merge gate evidence, even on failure.
 
 The workflow and its invariants have static regression tests.
 In the first live run, trusted source was anchored to
@@ -58,32 +64,41 @@ reported `ChangeAttest policy gate: PASS`; GitHub attached
   PR-controlled shell scripts, loading package metadata, mounting a
   writable Docker socket or importing PR modules) could turn it into
   a supply-chain compromise. Preserve the no-execution boundary.
-- As currently designed, the job verifies the proposed **PR head**
-  rather than GitHub's synthetic merge commit. Merge correctness
-  and the existing merge commit gate still require separate checks.
+- The job now verifies **both** the PR head and GitHub's synthetic
+  merge tree, after matching the synthetic merge's ordered parent
+  identities. A matching Git commit is not an independent attestation
+  of GitHub's merge service or a guarantee that the merge ref will
+  remain unchanged after the check. Re-run on base/head updates and
+  retain the existing required merge-commit check.
 - GitHub check association must be verified for each supported
   event/policy configuration. In the initial experiment GitHub
   attached the advisory check to the PR head, but it is NOT part of
   the active required-check ruleset and does not replace validation
   against the synthetic merge commit.
-- GitHub has announced default restrictions on
-  `pull_request_target` events for public repositories beginning
-  November 2, 2026. Organization/repository Actions policy must be
-  checked before relying on this event. Do not bypass a protective
-  platform policy solely to enable this experiment.
+- GitHub's October 21, 2026 update moved default
+  `pull_request_target` event-policy enforcement for affected public
+  repositories to **December 2, 2026**. It is presently evaluated,
+  not automatically denied for this cohort. Review the repository's
+  policy insights before relying on the event; explicit, reviewed
+  event policies are an administrator responsibility.
 - Changes to the trusted workflow or policy still require
   independently enforced review. The existing active ruleset does
   not yet establish that level of governance.
 
 ## Acceptance criteria before any promotion
 
-The base-owned workflow ran successfully against real PR #21.
-Remaining: prove the critical-path denial against a disposable PR
-that modifies a protected workflow, and separately test rejection
-of invalid Python in an untrusted target revision. Before promotion
-to required-check status, confirm the future event policy,
-enforced reviewer configuration, and trusted check source in GitHub
-administration (possibly organization-level required workflows).
+The base-owned workflow passed real PR #21. Negative controls
+were subsequently verified: [draft PR #23](https://github.com/Chrisbryan17/changeattest/pull/23)
+rejected a weakened policy, and
+[draft PR #24](https://github.com/Chrisbryan17/changeattest/pull/24)
+rejected invalid committed Python using both the traditional and
+base-owned gates; both fixtures were closed without merging.
+
+The synthetic-merge extension is implemented with regression tests,
+but requires **a fresh live PR run after this workflow reaches
+`main`**. Before promotion to required-check status, verify event
+policy, enforced human review rules, trusted status-check source and
+behavior on a stale or conflicted merge ref.
 
 References:
 - https://docs.github.com/en/actions/reference/security/securely-using-pull_request_target
